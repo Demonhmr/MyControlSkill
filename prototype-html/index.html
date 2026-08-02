@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Прототип: Диагностика управленческой компетенции</title>
+<style>
+  :root, .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --zone-muted:     #d9d8d2;
+    --zone-muted-ink: #8f8d86;
+
+    --series-blue:    #2a78d6;
+    --series-blue-strong: #104281;
+    --series-red:     #e34948;
+    --cl-1: #2a78d6; /* Характер */
+    --cl-2: #eb6834; /* Личная компетентность */
+    --cl-3: #1baf7a; /* Фокус на результате */
+    --cl-4: #eda100; /* Межличностные навыки */
+    --cl-5: #e87ba4; /* Управление изменениями */
+
+    --status-good:     #0ca30c;
+    --status-warning:  #fab219;
+    --status-serious:  #ec835a;
+    --status-critical: #d03b3b;
+
+    --success-text:    #006300;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page:           #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --zone-muted:     #33332f;
+      --zone-muted-ink: #a8a69f;
+
+      --series-blue:    #3987e5;
+      --series-blue-strong: #86b6ef;
+      --series-red:     #e66767;
+      --cl-1: #3987e5;
+      --cl-2: #d95926;
+      --cl-3: #199e70;
+      --cl-4: #c98500;
+      --cl-5: #d55181;
+
+      --status-good:     #0ca30c;
+      --status-warning:  #fab219;
+      --status-serious:  #ec835a;
+      --status-critical: #e66767;
+
+      --success-text:    #0ca30c;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page:           #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --zone-muted:     #33332f;
+    --zone-muted-ink: #a8a69f;
+
+    --series-blue:    #3987e5;
+    --series-blue-strong: #86b6ef;
+    --series-red:     #e66767;
+    --cl-1: #3987e5;
+    --cl-2: #d95926;
+    --cl-3: #199e70;
+    --cl-4: #c98500;
+    --cl-5: #d55181;
+
+    --status-good:     #0ca30c;
+    --status-warning:  #fab219;
+    --status-serious:  #ec835a;
+    --status-critical: #e66767;
+
+    --success-text:    #0ca30c;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { max-width: 980px; margin: 0 auto; padding: 0 20px 80px; }
+
+  header.top {
+    position: sticky; top:0; z-index: 20;
+    background: var(--page);
+    padding: 18px 0 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .top-row { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  .brand { font-size:15px; font-weight:600; letter-spacing:.2px; }
+  .brand span { color: var(--text-secondary); font-weight: 400; }
+  .theme-btn {
+    border:1px solid var(--border); background: var(--surface-1); color:var(--text-secondary);
+    border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer;
+  }
+  nav.steps { display:flex; gap:6px; overflow-x:auto; padding-top:14px; scrollbar-width:none; }
+  nav.steps::-webkit-scrollbar{ display:none; }
+  nav.steps button {
+    flex: 0 0 auto;
+    border:1px solid var(--border);
+    background: var(--surface-1);
+    color: var(--text-secondary);
+    font-size: 12.5px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    display:flex; align-items:center; gap:6px;
+  }
+  nav.steps button .n {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:16px; height:16px; border-radius:50%;
+    background: var(--zone-muted); color: var(--zone-muted-ink);
+    font-size:10px; font-weight:700;
+  }
+  nav.steps button.active { border-color: var(--series-blue); color: var(--text-primary); background: var(--surface-1); }
+  nav.steps button.active .n { background: var(--series-blue); color:#fff; }
+  nav.steps button[data-locked="1"] { opacity:.5; }
+
+  .screen { display:none; animation: fade .15s ease-out; }
+  .screen.active { display:block; }
+  @keyframes fade { from{opacity:0; transform:translateY(3px);} to{opacity:1; transform:none;} }
+
+  h1.scr-title { font-size:19px; margin:4px 0 3px; }
+  p.scr-sub { color: var(--text-secondary); font-size:13.5px; margin:0 0 20px; max-width:640px; line-height:1.5; }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+  .card h3 { margin:0 0 10px; font-size:14px; }
+  .muted { color: var(--text-muted); }
+  .sec-label { text-transform:uppercase; letter-spacing:.06em; font-size:10.5px; color:var(--text-muted); font-weight:700; margin-bottom:10px; }
+
+  .banner {
+    display:flex; gap:10px; align-items:flex-start;
+    border:1px solid var(--status-critical);
+    background: color-mix(in srgb, var(--status-critical) 10%, var(--surface-1));
+    border-radius:10px; padding:12px 14px; margin-bottom:16px;
+  }
+  .banner .ic {
+    width:20px;height:20px;border-radius:50%;flex:0 0 auto;
+    background:var(--status-critical); color:#fff; display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:800;
+  }
+  .banner b { display:block; font-size:13.5px; margin-bottom:2px; }
+  .banner p { margin:0; font-size:12.5px; color:var(--text-secondary); }
+  .banner.ok { border-color: var(--status-good); background: color-mix(in srgb, var(--status-good) 8%, var(--surface-1)); }
+  .banner.ok .ic { background: var(--status-good); }
+
+  .badge {
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px;
+  }
+  .badge.critical { background: color-mix(in srgb, var(--status-critical) 16%, transparent); color: var(--status-critical); }
+  .badge.good { background: color-mix(in srgb, var(--status-good) 16%, transparent); color: var(--success-text); }
+  .badge.neutral { background: var(--zone-muted); color: var(--zone-muted-ink); }
+  .badge .dot { width:6px;height:6px;border-radius:50%; background:currentColor; }
+
+  .destructor-row {
+    display:flex; align-items:center; gap:12px;
+    padding:11px 4px; border-bottom:1px solid var(--gridline);
+  }
+  .destructor-row:last-child { border-bottom:none; }
+  .destructor-row .name { flex:1; font-size:13.5px; }
+  .destructor-row .pct { font-size:12.5px; color:var(--text-secondary); width:70px; text-align:right; font-variant-numeric: tabular-nums; }
+  .destructor-row.crit .name { font-weight:600; }
+  .destructor-detail {
+    margin-top:10px; padding:12px; border-radius:10px;
+    background: color-mix(in srgb, var(--status-critical) 6%, var(--surface-1));
+    border:1px dashed var(--gridline);
+    font-size:12.5px; color:var(--text-secondary);
+  }
+  .btn {
+    border:1px solid var(--series-blue); background:var(--series-blue); color:#fff;
+    font-size:12.5px; padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:600;
+  }
+  .btn.secondary { background:transparent; color:var(--series-blue); }
+  .btn.ghost { background:transparent; border-color:var(--border); color:var(--text-secondary); }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .btn-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+
+  .legend { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--text-secondary); margin-bottom:14px; }
+  .legend .item { display:flex; align-items:center; gap:6px; }
+  .legend .swatch { width:11px; height:11px; border-radius:3px; }
+  .bar-row { display:flex; align-items:center; gap:10px; padding:5px 0; }
+  .bar-row .lbl { width:230px; font-size:12.5px; color:var(--text-secondary); flex:0 0 auto; }
+  .bar-row .lbl .cl { display:block; font-size:10px; color:var(--text-muted); }
+  .bar-track { flex:1; position:relative; height:22px; }
+  .bar-fill {
+    position:absolute; left:0; top:3px; height:16px; border-radius:0 4px 4px 0;
+    transition: width .2s;
+  }
+  .bar-fill.first { border-radius:4px; }
+  .bar-val { margin-left:8px; font-size:12px; font-variant-numeric: normal; color:var(--text-primary); width:34px; display:inline-block; }
+  .bar-star { color: var(--series-blue-strong); font-size:11px; margin-left:2px; }
+  .refline { position:absolute; top:-2px; bottom:-2px; width:1px; background:var(--baseline); }
+  .refline span { position:absolute; top:-16px; left:2px; font-size:9.5px; color:var(--text-muted); white-space:nowrap; }
+  .chart-scale { position:relative; height:1px; margin: 0 0 8px 240px; background:transparent; }
+
+  table.twin { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:10px; }
+  table.twin th, table.twin td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--gridline); }
+  table.twin th { color:var(--text-muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; }
+  table.twin td.num { text-align:right; font-variant-numeric: tabular-nums; }
+  .toggle-table { font-size:12px; color:var(--series-blue); background:none; border:none; cursor:pointer; padding:0; text-decoration:underline; }
+
+  .venn-hint { display:flex; gap:18px; margin-bottom:16px; flex-wrap:wrap; }
+  .venn-hint .vi { flex:1; min-width:150px; border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:12px; color:var(--text-secondary); }
+  .venn-hint .vi b { display:block; color:var(--text-primary); font-size:12.5px; margin-bottom:2px; }
+
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+  .chip {
+    border:1px solid var(--border); background:var(--surface-1); color:var(--text-secondary);
+    font-size:12px; padding:7px 12px; border-radius:999px; cursor:pointer;
+  }
+  .chip.selected { border-color:var(--series-blue); color:var(--text-primary); background: color-mix(in srgb, var(--series-blue) 10%, var(--surface-1)); }
+
+  .gp-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(230px,1fr)); gap:12px; }
+  .gp-card { border:1px solid var(--border); border-radius:10px; padding:13px; background:var(--surface-1); }
+  .gp-card.match { border-color:var(--series-blue); box-shadow: 0 0 0 1px var(--series-blue) inset; }
+  .gp-card h4 { margin:0 0 2px; font-size:13.5px; }
+  .gp-card .pct { font-size:11.5px; color:var(--text-secondary); margin-bottom:8px; }
+  .gp-card label.int { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-secondary); margin-bottom:8px; cursor:pointer; }
+  .gp-card .needmatch { font-size:11px; margin-bottom:8px; min-height:14px; }
+  .gp-card .needmatch.yes { color: var(--success-text); }
+  .gp-card .needmatch.no { color: var(--text-muted); }
+
+  .comp-card { border:1px solid var(--border); border-radius:10px; padding:13px; margin-bottom:10px; display:flex; gap:12px; align-items:flex-start; }
+  .comp-rank { width:24px; height:24px; border-radius:50%; background:var(--zone-muted); color:var(--zone-muted-ink); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  .comp-card:first-of-type .comp-rank { background: var(--series-blue); color:#fff; }
+  .comp-body h4 { margin:0 0 3px; font-size:13.5px; }
+  .comp-body p { margin:0; font-size:12.5px; color:var(--text-secondary); line-height:1.5; }
+  .comp-body .pct { font-size:11px; color:var(--text-muted); margin-top:4px; }
+
+  .dlg-step { display:grid; grid-template-columns: 120px 1fr; gap:4px 14px; font-size:13px; padding:9px 0; border-bottom:1px solid var(--gridline); }
+  .dlg-step:last-child { border-bottom:none; }
+  .dlg-step .k { color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:.05em; padding-top:2px; }
+  .dlg-step .v.bad { color: var(--status-critical); }
+  .dlg-step .v.good { color: var(--success-text); }
+  .dlg-step .v.script { font-style:italic; }
+  textarea.reflect { width:100%; min-height:70px; border:1px solid var(--border); border-radius:8px; padding:10px; font-family:inherit; font-size:13px; background:var(--surface-1); color:var(--text-primary); resize:vertical; }
+  .log-entry { border-top:1px solid var(--gridline); padding:9px 0; font-size:12.5px; }
+  .log-entry .meta { color:var(--text-muted); font-size:11px; margin-bottom:3px; }
+
+  .linechart-wrap { position:relative; }
+  svg.linechart { width:100%; height:220px; overflow:visible; }
+  .lc-tooltip {
+    position:absolute; pointer-events:none; background:var(--text-primary); color:var(--surface-1);
+    font-size:11.5px; padding:6px 9px; border-radius:6px; transform:translate(-50%,-115%);
+    white-space:nowrap; opacity:0; transition:opacity .1s; z-index: 5;
+  }
+  .lc-tooltip b { font-weight:700; }
+
+  .heatmap-scroll { overflow-x:auto; }
+  table.heat { border-collapse: separate; border-spacing: 2px; font-size:11px; }
+  table.heat th { font-weight:600; color:var(--text-secondary); padding:4px 6px; text-align:left; white-space:nowrap; }
+  table.heat th.col { writing-mode: vertical-rl; transform: rotate(180deg); text-align:left; height:110px; font-size:10.5px; color:var(--text-muted); }
+  table.heat td.cell {
+    width:26px; height:22px; border-radius:4px; position:relative; cursor:default;
+  }
+  table.heat td.cell .rd { position:absolute; top:2px; right:2px; width:6px; height:6px; border-radius:50%; background:var(--status-critical); box-shadow:0 0 0 1px var(--surface-1); }
+  .heat-tooltip {
+    position:fixed; pointer-events:none; background:var(--text-primary); color:var(--surface-1);
+    font-size:11.5px; padding:7px 10px; border-radius:6px; z-index:30; opacity:0; transition:opacity .1s;
+    max-width:220px;
+  }
+  .heat-tooltip b { font-weight:700; }
+
+  .cluster-legend { display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--text-secondary); margin: 10px 0 16px; }
+  .cluster-legend .item { display:flex; align-items:center; gap:6px; }
+  .cluster-legend .dot { width:9px;height:9px;border-radius:50%; }
+
+  .leader-row { display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid var(--gridline); font-size:12.5px; }
+  .leader-row:last-child{border-bottom:none;}
+  .leader-row .lname { width:140px; flex:0 0 auto; font-weight:600; }
+  .leader-row .chipset { display:flex; gap:6px; flex-wrap:wrap; }
+  .leader-row .badgechip { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--text-secondary); border:1px solid var(--border); padding:2px 8px; border-radius:999px; }
+  .leader-row .badgechip .dot { width:7px;height:7px;border-radius:50%; }
+  .leader-row .flag { color: var(--status-critical); font-size:11px; font-weight:700; }
+
+  .footnote { font-size:11.5px; color:var(--text-muted); margin-top:6px; }
+</style>
+</head>
+<body>
+<div class="app viz-root">
+
+  <header class="top">
+    <div class="top-row">
+      <div class="brand">Компас руководителя <span>— кликабельный прототип</span></div>
+      <button class="theme-btn" id="themeToggle">🌓 Тема</button>
+    </div>
+    <nav class="steps" id="stepNav">
+      <button data-target="scr-destr"><span class="n">1</span> Деструкторы</button>
+      <button data-target="scr-strength"><span class="n">2</span> Карта силы</button>
+      <button data-target="scr-growth"><span class="n">3</span> Точка роста</button>
+      <button data-target="scr-plan"><span class="n">4</span> План развития</button>
+      <button data-target="scr-trainer"><span class="n">5</span> Тренажёр</button>
+      <button data-target="scr-pulse"><span class="n">6</span> Пульс-трекер</button>
+      <button data-target="scr-hr"><span class="n">7</span> HR-дашборд</button>
+    </nav>
+  </header>
+
+  <!-- ================= SCREEN 1: DESTRUCTORS ================= -->
+  <section class="screen active" id="scr-destr">
+    <h1 class="scr-title">Критические зоны (деструкторы)</h1>
+    <p class="scr-sub">Компетенции ниже 10-го перцентиля нивелируют эффект всех сильных сторон. Пока критическая зона не проработана — остальные разделы приложения доступны только для просмотра.</p>
+
+    <div id="destrBanner"></div>
+
+    <div class="card">
+      <div class="sec-label">10 деструкторов, отсортировано от самого критичного</div>
+      <div id="destrList"></div>
+    </div>
+
+    <div class="card muted" style="font-size:12.5px;">
+      Каждому деструктору соответствует поведенческий вопрос в 360°-опросе. Значение — перцентиль частоты негативного поведения по оценке окружения (не самооценка).
+    </div>
+  </section>
+
+  <!-- ================= SCREEN 2: STRENGTH MAP ================= -->
+  <section class="screen" id="scr-strength">
+    <h1 class="scr-title">Карта сильных сторон</h1>
+    <p class="scr-sub">19 лидерских компетенций. Развитие в диапазоне 10–70 перцентиля почти не меняет восприятие лидерства — такие компетенции намеренно приглушены.</p>
+
+    <div class="card" id="lockedStrengthCard" style="display:none;"></div>
+
+    <div class="card">
+      <div class="legend">
+        <div class="item"><span class="swatch" style="background:var(--zone-muted)"></span> Не в фокусе (10–70 перц.)</div>
+        <div class="item"><span class="swatch" style="background:var(--series-blue)"></span> Кандидат в точку роста (70–90)</div>
+        <div class="item"><span class="swatch" style="background:var(--series-blue-strong)"></span> ★ Суперсила (90+)</div>
+      </div>
+      <div id="strengthChart"></div>
+      <button class="toggle-table" id="toggleStrengthTable">Показать как таблицу</button>
+      <div id="strengthTable" style="display:none;"></div>
+    </div>
+  </section>
+
+  <!-- ================= SCREEN 3: GROWTH POINT ================= -->
+  <section class="screen" id="scr-growth">
+    <h1 class="scr-title">Выбор точки роста</h1>
+    <p class="scr-sub">Точка роста — компетенция на пересечении трёх фильтров. Отметьте, что вам интересно развивать, и выберите вызовы, которые сейчас стоят перед командой.</p>
+
+    <div id="lockedGrowthCard" style="display:none;" class="card"></div>
+
+    <div id="growthContent">
+      <div class="venn-hint">
+        <div class="vi"><b>1. Сила</b>перцентиль ≥ 70 по данным 360° — уже показано ниже как кандидаты</div>
+        <div class="vi"><b>2. Интерес</b>отметьте чекбоксом на карточке компетенции</div>
+        <div class="vi"><b>3. Потребность</b>выберите актуальные вызовы команды ниже</div>
+      </div>
+
+      <div class="sec-label">Вызовы команды сейчас</div>
+      <div class="chips" id="needsChips"></div>
+
+      <div class="sec-label">Кандидаты (сила ≥ 70 перцентиль)</div>
+      <div class="gp-grid" id="gpGrid"></div>
+    </div>
+  </section>
+
+  <!-- ================= SCREEN 4: PLAN ================= -->
+  <section class="screen" id="scr-plan">
+    <h1 class="scr-title">План развития</h1>
+    <p class="scr-sub">Развитие уже сильной компетенции до «выдающегося» уровня (90+ перцентиль) идёт через компетенции-спутники, а не через универсальные тренинги.</p>
+    <div id="planContent"></div>
+  </section>
+
+  <!-- ================= SCREEN 5: TRAINER ================= -->
+  <section class="screen" id="scr-trainer">
+    <h1 class="scr-title">Тренажёр «Трудный диалог»</h1>
+    <p class="scr-sub">Наибольшее впечатление формируют ситуации несогласия и эмоционального напряжения — это главный тренажёр для перехода в разряд «выдающихся».</p>
+    <div id="trainerContent"></div>
+  </section>
+
+  <!-- ================= SCREEN 6: PULSE ================= -->
+  <section class="screen" id="scr-pulse">
+    <h1 class="scr-title">Пульс-трекер</h1>
+    <p class="scr-sub">Короткая точечная переоценка выбранной связки (не весь профиль) раз в 6–8 недель — отслеживаем сдвиг перцентиля.</p>
+    <div id="pulseContent"></div>
+  </section>
+
+  <!-- ================= SCREEN 7: HR DASHBOARD ================= -->
+  <section class="screen" id="scr-hr">
+    <h1 class="scr-title">HR-дашборд команды</h1>
+    <p class="scr-sub">Агрегированная карта деструкторов (риск-приоритизация) и суперсил (8 руководителей) — для орг. решений, а не для рейтингов.</p>
+
+    <div class="card">
+      <h3>Тепловая карта деструкторов</h3>
+      <div class="heatmap-scroll">
+        <table class="heat" id="heatTable"></table>
+      </div>
+      <div class="legend" style="margin-top:12px;">
+        <div class="item"><span class="swatch" style="background:#cde2fb"></span> Низкий риск</div>
+        <div class="item"><span class="swatch" style="background:#104281"></span> Высокий перцентиль (норма)</div>
+        <div class="item"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:var(--status-critical);display:inline-block;"></span> Критично (&lt; 10 перц.)</div>
+      </div>
+      <button class="toggle-table" id="toggleHeatTable">Показать как таблицу</button>
+      <div id="heatTableTwin" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+      <h3>Карта суперсил команды</h3>
+      <div class="cluster-legend" id="clusterLegend"></div>
+      <div id="leaderList"></div>
+    </div>
+  </section>
+
+</div>
+
+<div class="lc-tooltip" id="lcTooltip"></div>
+<div class="heat-tooltip" id="heatTooltip"></div>
+
+<script>
+/* ============ DATA ============ */
+const COMPETENCIES = [
+  {code:'INT', name:'Цельность и честность', cluster:'Характер', percentile:62},
+  {code:'EXP', name:'Профессиональная экспертиза', cluster:'Личная компетентность', percentile:91},
+  {code:'PSA', name:'Решение проблем и анализ', cluster:'Личная компетентность', percentile:68},
+  {code:'INN', name:'Инновации', cluster:'Личная компетентность', percentile:55},
+  {code:'LRN', name:'Скорость обучения', cluster:'Личная компетентность', percentile:60},
+  {code:'RES', name:'Ориентация на результат', cluster:'Фокус на результате', percentile:74},
+  {code:'GOL', name:'Напряжённые цели', cluster:'Фокус на результате', percentile:58},
+  {code:'INI', name:'Инициатива', cluster:'Фокус на результате', percentile:65},
+  {code:'DEC', name:'Принятие решений', cluster:'Фокус на результате', percentile:71},
+  {code:'RSK', name:'Принятие риска', cluster:'Фокус на результате', percentile:49},
+  {code:'COM', name:'Коммуникация', cluster:'Межличностные навыки', percentile:93},
+  {code:'INS', name:'Вдохновение и мотивация', cluster:'Межличностные навыки', percentile:78},
+  {code:'REL', name:'Построение отношений', cluster:'Межличностные навыки', percentile:88},
+  {code:'DEV', name:'Развитие других', cluster:'Межличностные навыки', percentile:52},
+  {code:'COL', name:'Командная работа', cluster:'Межличностные навыки', percentile:66},
+  {code:'DIV', name:'Ценность разнообразия', cluster:'Межличностные навыки', percentile:57},
+  {code:'VIS', name:'Стратегическое видение', cluster:'Управление изменениями', percentile:44},
+  {code:'CHG', name:'Поддержка изменений', cluster:'Управление изменениями', percentile:61},
+  {code:'CUS', name:'Фокус на клиенте', cluster:'Управление изменениями', percentile:69},
+];
+
+const CLUSTER_COLOR_VAR = {
+  'Характер':'--cl-1', 'Личная компетентность':'--cl-2', 'Фокус на результате':'--cl-3',
+  'Межличностные навыки':'--cl-4', 'Управление изменениями':'--cl-5'
+};
+
+const DESTRUCTORS = [
+  {id:'d3', name:'Нет ясного видения и стратегии', percentile:8,  quote:'«Непонятно, куда мы вообще движемся».'},
+  {id:'d9', name:'Сопротивляется новым идеям', percentile:33, quote:null},
+  {id:'d2', name:'Мирится с посредственной работой', percentile:38, quote:null},
+  {id:'d1', name:'Не вдохновляет окружающих', percentile:42, quote:null},
+  {id:'d7', name:'Не развивается, не учится на ошибках', percentile:48, quote:null},
+  {id:'d4', name:'Решения воспринимаются как неверные', percentile:55, quote:null},
+  {id:'d10', name:'Фокус на себе, а не на команде', percentile:58, quote:null},
+  {id:'d5', name:'Плохо взаимодействует с командой', percentile:61, quote:null},
+  {id:'d8', name:'Недостаточные межличностные навыки', percentile:65, quote:null},
+  {id:'d6', name:'Слова расходятся с делом', percentile:70, quote:null},
+];
+
+const COMPANIONS = {
+  INT:['DEC','COM','VIS','DEV','COL','RES','CHG'], EXP:['REL','COM','DEV','COL','INN','VIS','INI'],
+  PSA:['DEC','INN','RES','COM','VIS','RSK','COL'], INN:['RSK','CHG','VIS','PSA','COM','INS','COL'],
+  LRN:['INN','DEV','COL','COM','CHG','PSA','INT'], RES:['DEC','INI','COM','INS','COL','VIS','DEV'],
+  GOL:['VIS','INS','COM','RSK','DEC','COL','CHG'], INI:['RSK','DEC','COM','VIS','INS','COL','CHG'],
+  DEC:['INT','COM','PSA','RES','VIS','COL','RSK'], RSK:['DEC','INN','VIS','COM','INT','COL','CHG'],
+  COM:['VIS','INS','INT','DEC','DEV','COL','CHG'], INS:['VIS','COM','DEV','INT','GOL','COL','CHG'],
+  REL:['COM','COL','DIV','DEV','EXP','INT','INS'], DEV:['COM','REL','INS','COL','DIV','LRN','INT'],
+  COL:['COM','DIV','REL','DEV','INT','INS','CHG'], DIV:['COL','COM','REL','DEV','INT','INS','CUS'],
+  VIS:['COM','INS','CHG','RSK','DEC','GOL','INN'], CHG:['COM','VIS','INS','RSK','COL','INT','INI'],
+  CUS:['COL','COM','INN','REL','DIV','VIS','DEC']
+};
+
+const RATIONALE = {
+  'EXP-REL':'Экспертиза без отношений читается как «умный, но далёкий». В связке с построением отношений превращается во влияние.',
+  'EXP-COM':'Экспертное мнение долетает до команды только через ясную коммуникацию.',
+  'COM-VIS':'Коммуникация без содержания — «красиво говорит ни о чём». Видение даёт коммуникации предмет.',
+  'COM-INS':'Коммуникация в связке с вдохновением превращает информирование в мотивацию.',
+  'REL-COM':'Отношения без открытой коммуникации остаются поверхностными.',
+  'REL-COL':'Отношения усиливают командную работу — доверие один-на-один масштабируется на команду.',
+  'INS-VIS':'Вдохновение без ясной цели воспринимается как манипуляция. Видение даёт вдохновению основание.',
+  'DEC-COM':'Решения, о которых не объяснили логику, воспринимаются как произвольные.',
+  'RES-DEC':'Ориентация на результат без решительности выглядит как «требует, но не решает».',
+};
+function rationale(target, comp){
+  return RATIONALE[target+'-'+comp] || RATIONALE[comp+'-'+target] ||
+    `Усиливает восприятие «${nameOf(target)}» — окружение чаще видит обе компетенции в одной и той же ситуации, что закрепляет образ выдающегося уровня.`;
+}
+function nameOf(code){ return (COMPETENCIES.find(c=>c.code===code)||{}).name || code; }
+function pctOf(code){ const c = COMPETENCIES.find(c=>c.code===code); return c ? c.percentile : null; }
+
+const NEEDS = [
+  {id:'n1', label:'Масштабирование команды', codes:['DEV','COL','INS']},
+  {id:'n2', label:'Запуск нового продукта', codes:['INN','VIS','RSK']},
+  {id:'n3', label:'Кризис доверия в команде', codes:['INT','COM','REL']},
+  {id:'n4', label:'Выход на новый рынок', codes:['CUS','VIS','RSK']},
+  {id:'n5', label:'Оптимизация процессов', codes:['RES','PSA','DEC']},
+];
+
+const SCENARIOS = {
+  EXP: {trigger:'Команда сомневается в правильности вашего технического решения', bad:'«Я эксперт, просто доверьтесь мне»', good:'Признать неопределённость и показать ход рассуждений', script:'«Вот как я рассуждал и какие риски видел. Что вы видите такого, чего не вижу я?»'},
+  COM: {trigger:'Нужно сообщить команде непопулярное решение', bad:'Написать решение в чат без объяснений', good:'Назвать решение прямо и объяснить логику до того, как появятся вопросы', script:'«Решение такое-то. Вот почему. Что для вас в этом самое сложное?»'},
+  REL: {trigger:'Конфликт между двумя ключевыми членами команды', bad:'Игнорировать, надеясь, что само решится', good:'Провести прямой разговор с обеими сторонами вместе', script:'«Я вижу напряжение между вами. Предлагаю проговорить это здесь и сейчас»'},
+  RES: {trigger:'Команда показала хороший, но не выдающийся результат', bad:'Похвалить и не поднимать планку', good:'Признать результат и сразу обозначить следующую высоту', script:'«Это хорошо. А что нужно, чтобы сделать это выдающимся?»'},
+  DEC: {trigger:'Нужно решение при неполных данных, команда ждёт', bad:'Затягивать до идеальной уверенности', good:'Принять решение открыто, обозначив риск и план Б', script:'«Я решаю так, зная X и не зная Y. Если ошибусь — вот план Б»'},
+  INS: {trigger:'Команда устала и демотивирована после сложного релиза', bad:'«Соберитесь, у нас дедлайны»', good:'Признать усталость и связать усилия со смыслом', script:'«Я вижу, как вы устали. И вот почему то, что вы сделали, было важно»'},
+  DESTRUCTOR_VIS: {trigger:'Команда не понимает, куда движется компания/продукт', bad:'«Просто делайте свою работу, стратегией займусь я»', good:'Явно сформулировать картину и связать с ней текущие задачи каждого', script:'«Вот куда мы идём в этом квартале и почему то, что вы делаете сейчас, для этого важно»'},
+};
+function scenarioFor(code){ return SCENARIOS[code] || {trigger:'Ситуация несогласия, важная и эмоционально заряженная для команды', bad:'Защищать решение, спорить с несогласием', good:'Сначала создать безопасность для высказывания несогласия, затем говорить по сути', script:'«Я знаю, что вы не в восторге. Давайте честно: с чем вы не согласны?»'}; }
+
+/* ============ STATE ============ */
+const state = {
+  destructorAcknowledged: false,
+  growthPoint: null, // competency code or 'DESTRUCTOR'
+  interest: {}, // code -> bool
+  needs: {},    // id -> bool
+  trainerScenarioCode: null,
+  reflections: [],
+};
+const hasCriticalDestructor = () => DESTRUCTORS.some(d => d.percentile < 10) && !state.destructorAcknowledged;
+
+/* ============ NAV ============ */
+const screens = ['scr-destr','scr-strength','scr-growth','scr-plan','scr-trainer','scr-pulse','scr-hr'];
+document.getElementById('stepNav').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-target]');
+  if(!btn) return;
+  showScreen(btn.dataset.target);
+});
+function showScreen(id){
+  screens.forEach(s=>{
+    document.getElementById(s).classList.toggle('active', s===id);
+  });
+  document.querySelectorAll('#stepNav button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.target===id);
+  });
+  window.scrollTo({top:0, behavior:'instant'});
+}
+
+document.getElementById('themeToggle').addEventListener('click', ()=>{
+  const html = document.documentElement;
+  const cur = html.getAttribute('data-theme');
+  html.setAttribute('data-theme', cur==='dark' ? 'light' : 'dark');
+});
+
+/* ============ SCREEN 1: DESTRUCTORS ============ */
+function renderDestructors(){
+  const banner = document.getElementById('destrBanner');
+  const crit = DESTRUCTORS.filter(d=>d.percentile<10);
+  if(crit.length && !state.destructorAcknowledged){
+    banner.innerHTML = `<div class="banner">
+      <div class="ic">!</div>
+      <div><b>Обнаружена критическая зона — ${crit.length}</b>
+      <p>Пока она активна, разделы «Точка роста» и «План развития» заблокированы для выбора. Это единственный приоритет.</p></div>
+    </div>`;
+  } else {
+    banner.innerHTML = `<div class="banner ok">
+      <div class="ic">✓</div>
+      <div><b>Критических зон нет</b>
+      <p>Можно переходить к поиску сильных сторон и точки роста.</p></div>
+    </div>`;
+  }
+
+  const list = document.getElementById('destrList');
+  list.innerHTML = '';
+  DESTRUCTORS.forEach(d=>{
+    const isCrit = d.percentile < 10 && !state.destructorAcknowledged;
+    const row = document.createElement('div');
+    row.className = 'destructor-row' + (isCrit?' crit':'');
+    row.innerHTML = `
+      <span class="badge ${isCrit?'critical':'neutral'}"><span class="dot"></span>${isCrit? 'Критично':'Норма'}</span>
+      <span class="name">${d.name}</span>
+      <span class="pct">${d.percentile}-й перц.</span>
+    `;
+    list.appendChild(row);
+    if(d.percentile < 10){
+      const detail = document.createElement('div');
+      detail.className = 'destructor-detail';
+      detail.innerHTML = `
+        ${d.quote ? `<div style="margin-bottom:8px;">${d.quote}</div>` : ''}
+        <div>${state.destructorAcknowledged
+          ? 'Отмечено как проработанное. Следующий пульс-чек подтвердит сдвиг перцентиля выше 10.'
+          : 'Это единственный приоритет прямо сейчас. Начните с тренажёра по этой зоне или подтвердите, что она уже в работе.'}</div>
+        <div class="btn-row">
+          <button class="btn secondary" id="openDestrTrainer">Открыть тренажёр по этой зоне →</button>
+          ${!state.destructorAcknowledged ? '<button class="btn ghost" id="ackDestr">Отметить как проработанное (демо)</button>' : ''}
+        </div>
+      `;
+      list.appendChild(detail);
+      const openBtn = detail.querySelector('#openDestrTrainer');
+      if(openBtn) openBtn.addEventListener('click', ()=>{
+        state.trainerScenarioCode = 'DESTRUCTOR_VIS';
+        renderTrainer();
+        showScreen('scr-trainer');
+      });
+      const ackBtn = detail.querySelector('#ackDestr');
+      if(ackBtn) ackBtn.addEventListener('click', ()=>{
+        state.destructorAcknowledged = true;
+        renderAll();
+      });
+    }
+  });
+}
+
+/* ============ SCREEN 2: STRENGTH MAP ============ */
+function zoneOf(p){
+  if(p >= 90) return {cls:'superpower', color:'var(--series-blue-strong)', label:'Суперсила'};
+  if(p >= 70) return {cls:'candidate', color:'var(--series-blue)', label:'Кандидат'};
+  return {cls:'not-focus', color:'var(--zone-muted)', label:'Не в фокусе'};
+}
+function renderStrength(){
+  const lockedCard = document.getElementById('lockedStrengthCard');
+  if(hasCriticalDestructor()){
+    lockedCard.style.display='block';
+    lockedCard.innerHTML = `<div class="banner"><div class="ic">!</div><div><b>Просмотр без активации плана</b><p>Пока критическая зона не проработана, карту можно смотреть, но выбор точки роста недоступен.</p></div></div>`;
+  } else {
+    lockedCard.style.display='none';
+  }
+
+  const sorted = [...COMPETENCIES].sort((a,b)=>b.percentile-a.percentile);
+  const chart = document.getElementById('strengthChart');
+  chart.innerHTML = '';
+  sorted.forEach(c=>{
+    const z = zoneOf(c.percentile);
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML = `
+      <div class="lbl">${c.name}<span class="cl">${c.cluster}</span></div>
+      <div class="bar-track" tabindex="0" data-tip="${c.name} — ${c.percentile}-й перцентиль (${z.label})">
+        <div class="refline" style="left:70%;"></div>
+        <div class="refline" style="left:90%;"></div>
+        <div class="bar-fill first" style="width:${c.percentile}%; background:${z.color};"></div>
+      </div>
+      <span class="bar-val">${c.percentile}${c.percentile>=90?'<span class="bar-star">★</span>':''}</span>
+    `;
+    chart.appendChild(row);
+  });
+  const scale = document.createElement('div');
+  scale.className = 'footnote';
+  scale.style.marginLeft = '240px';
+  scale.textContent = 'Тонкие вертикальные линии — пороги 70 и 90 перцентиля';
+  chart.appendChild(scale);
+
+  attachBarTooltips(chart);
+
+  // table twin
+  const tableWrap = document.getElementById('strengthTable');
+  let html = '<table class="twin"><thead><tr><th>Компетенция</th><th>Кластер</th><th>Перцентиль</th><th>Зона</th></tr></thead><tbody>';
+  sorted.forEach(c=>{
+    const z = zoneOf(c.percentile);
+    html += `<tr><td>${c.name}</td><td>${c.cluster}</td><td class="num">${c.percentile}</td><td>${z.label}</td></tr>`;
+  });
+  html += '</tbody></table>';
+  tableWrap.innerHTML = html;
+}
+document.getElementById('toggleStrengthTable').addEventListener('click', function(){
+  const t = document.getElementById('strengthTable');
+  const chart = document.getElementById('strengthChart');
+  const showing = t.style.display !== 'none';
+  t.style.display = showing ? 'none' : 'block';
+  chart.style.display = showing ? 'block' : 'none';
+  this.textContent = showing ? 'Показать как таблицу' : 'Показать как график';
+});
+
+function attachBarTooltips(container){
+  let tip;
+  container.querySelectorAll('.bar-track').forEach(el=>{
+    el.addEventListener('mouseenter', ()=>{
+      tip = document.createElement('div');
+      tip.className = 'lc-tooltip';
+      tip.style.opacity = '1';
+      tip.textContent = el.dataset.tip;
+      document.body.appendChild(tip);
+      positionTip(tip, el);
+    });
+    el.addEventListener('mousemove', ()=>{ if(tip) positionTip(tip, el); });
+    el.addEventListener('mouseleave', ()=>{ if(tip){ tip.remove(); tip=null; } });
+  });
+}
+function positionTip(tip, el){
+  const r = el.getBoundingClientRect();
+  tip.style.position = 'fixed';
+  tip.style.left = (r.left + r.width*Math.min(1, Math.max(0,parseFloat(el.querySelector('.bar-fill').style.width)/100)) ) + 'px';
+  tip.style.top = r.top + 'px';
+  tip.style.transform = 'translate(-50%,-130%)';
+}
+
+/* ============ SCREEN 3: GROWTH POINT ============ */
+function renderGrowth(){
+  const lockedCard = document.getElementById('lockedGrowthCard');
+  const content = document.getElementById('growthContent');
+  if(hasCriticalDestructor()){
+    lockedCard.style.display = 'block';
+    content.style.display = 'none';
+    lockedCard.innerHTML = `<div class="banner"><div class="ic">!</div><div><b>Раздел заблокирован</b><p>Сначала проработайте критическую зону на экране «Деструкторы» — это единственный приоритет по модели статьи.</p>
+      <div class="btn-row"><button class="btn secondary" id="goDestrFromGrowth">Перейти к деструкторам</button></div></div></div>`;
+    document.getElementById('goDestrFromGrowth').addEventListener('click', ()=>showScreen('scr-destr'));
+    return;
+  }
+  lockedCard.style.display = 'none';
+  content.style.display = 'block';
+
+  // needs chips
+  const needsWrap = document.getElementById('needsChips');
+  needsWrap.innerHTML = '';
+  NEEDS.forEach(n=>{
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (state.needs[n.id] ? ' selected':'');
+    chip.textContent = n.label;
+    chip.addEventListener('click', ()=>{ state.needs[n.id] = !state.needs[n.id]; renderGrowth(); });
+    needsWrap.appendChild(chip);
+  });
+
+  const candidates = COMPETENCIES.filter(c=>c.percentile>=70).sort((a,b)=>b.percentile-a.percentile);
+  const selectedNeedCodes = new Set(NEEDS.filter(n=>state.needs[n.id]).flatMap(n=>n.codes));
+
+  const grid = document.getElementById('gpGrid');
+  grid.innerHTML = '';
+  candidates.forEach(c=>{
+    const interested = !!state.interest[c.code];
+    const needsSelected = selectedNeedCodes.size > 0;
+    const matchesNeed = selectedNeedCodes.has(c.code);
+    const isMatch = interested && (!needsSelected || matchesNeed);
+
+    const card = document.createElement('div');
+    card.className = 'gp-card' + (isMatch ? ' match' : '');
+    card.innerHTML = `
+      <h4>${c.name}${c.percentile>=90?' ★':''}</h4>
+      <div class="pct">${c.percentile}-й перцентиль · ${c.cluster}</div>
+      <label class="int"><input type="checkbox" data-code="${c.code}" ${interested?'checked':''}/> Хочу развивать это</label>
+      <div class="needmatch ${needsSelected ? (matchesNeed?'yes':'no') : ''}">
+        ${needsSelected ? (matchesNeed ? '✓ Совпадает с потребностью команды' : 'Не связано с выбранными вызовами') : 'Выберите вызов команды выше, чтобы проверить'}
+      </div>
+      <button class="btn ${isMatch?'':'ghost'}" data-select="${c.code}" ${isMatch? '' : 'disabled'}>Выбрать точкой роста</button>
+    `;
+    grid.appendChild(card);
+    card.querySelector('input[type=checkbox]').addEventListener('change', (e)=>{
+      state.interest[c.code] = e.target.checked;
+      renderGrowth();
+    });
+    const selBtn = card.querySelector('[data-select]');
+    selBtn.addEventListener('click', ()=>{
+      state.growthPoint = c.code;
+      renderPlan(); renderTrainer(); renderPulse();
+      showScreen('scr-plan');
+    });
+  });
+}
+
+/* ============ SCREEN 4: PLAN ============ */
+function renderPlan(){
+  const el = document.getElementById('planContent');
+  if(hasCriticalDestructor()){
+    el.innerHTML = `<div class="banner"><div class="ic">!</div><div><b>Сначала — критическая зона</b><p>План развития суперсилы активируется после того, как деструктор проработан.</p></div></div>`;
+    return;
+  }
+  if(!state.growthPoint){
+    el.innerHTML = `<div class="card muted">Точка роста ещё не выбрана. <button class="btn secondary" id="goGrowth" style="margin-left:6px;">Выбрать →</button></div>`;
+    document.getElementById('goGrowth').addEventListener('click', ()=>showScreen('scr-growth'));
+    return;
+  }
+  const code = state.growthPoint;
+  const base = COMPETENCIES.find(c=>c.code===code);
+  const companions = (COMPANIONS[code]||[]).map(cc=>({code:cc, pct: pctOf(cc)})).sort((a,b)=>b.pct-a.pct).slice(0,3);
+
+  let html = `<div class="card">
+    <div class="sec-label">Выбранная точка роста</div>
+    <h3 style="font-size:16px;">${base.name} <span class="muted" style="font-weight:400;">— ${base.percentile}-й перцентиль</span></h3>
+    <p class="muted" style="font-size:12.5px;">Цель — довести восприятие этой компетенции с ${base.percentile}-го до 90+ перцентиля через компетенции-спутники, а не через общий тренинг.</p>
+  </div>
+  <div class="card">
+    <h3>Рекомендованные компетенции-спутники</h3>`;
+  companions.forEach((comp,i)=>{
+    html += `<div class="comp-card">
+      <div class="comp-rank">${i+1}</div>
+      <div class="comp-body">
+        <h4>${nameOf(comp.code)}</h4>
+        <p>${rationale(code, comp.code)}</p>
+        <div class="pct">Ваш текущий перцентиль: ${comp.pct}</div>
+      </div>
+    </div>`;
+  });
+  html += `<div class="btn-row"><button class="btn" id="goTrainerFromPlan">Перейти к тренажёру →</button></div></div>`;
+  el.innerHTML = html;
+  document.getElementById('goTrainerFromPlan').addEventListener('click', ()=>{
+    state.trainerScenarioCode = code;
+    renderTrainer();
+    showScreen('scr-trainer');
+  });
+}
+
+/* ============ SCREEN 5: TRAINER ============ */
+function renderTrainer(){
+  const el = document.getElementById('trainerContent');
+  const code = state.trainerScenarioCode || state.growthPoint;
+  if(!code){
+    el.innerHTML = `<div class="card muted">Сначала выберите точку роста или откройте тренажёр из критической зоны на экране «Деструкторы».</div>`;
+    return;
+  }
+  const sc = scenarioFor(code);
+  const title = code === 'DESTRUCTOR_VIS' ? 'Критическая зона: нет ясного видения' : nameOf(code);
+  el.innerHTML = `
+    <div class="card">
+      <div class="sec-label">${code === 'DESTRUCTOR_VIS' ? 'Тренажёр по деструктору' : 'Тренажёр по точке роста'}</div>
+      <h3 style="font-size:16px;">${title}</h3>
+      <div class="dlg-step"><div class="k">Ситуация</div><div class="v">${sc.trigger}</div></div>
+      <div class="dlg-step"><div class="k">Не делать</div><div class="v bad">${sc.bad}</div></div>
+      <div class="dlg-step"><div class="k">Выдающийся уровень</div><div class="v good">${sc.good}</div></div>
+      <div class="dlg-step"><div class="k">Скрипт</div><div class="v script">${sc.script}</div></div>
+    </div>
+    <div class="card">
+      <h3>После разговора — рефлексия</h3>
+      <textarea class="reflect" id="reflectInput" placeholder="Что сказал(а) собеседник? Что вы почувствовали? Что сделаете иначе в следующий раз?"></textarea>
+      <div class="btn-row"><button class="btn" id="saveReflect">Сохранить запись</button></div>
+      <div id="reflectLog"></div>
+    </div>
+  `;
+  document.getElementById('saveReflect').addEventListener('click', ()=>{
+    const val = document.getElementById('reflectInput').value.trim();
+    if(!val) return;
+    state.reflections.unshift({date: new Date().toLocaleDateString('ru-RU'), code, text: val});
+    document.getElementById('reflectInput').value = '';
+    renderReflectLog();
+  });
+  renderReflectLog();
+}
+function renderReflectLog(){
+  const log = document.getElementById('reflectLog');
+  if(!log) return;
+  log.innerHTML = '';
+  state.reflections.filter(r=>r.code === (state.trainerScenarioCode||state.growthPoint)).forEach(r=>{
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = r.date;
+    const body = document.createElement('div');
+    body.textContent = r.text;
+    div.appendChild(meta);
+    div.appendChild(body);
+    log.appendChild(div);
+  });
+}
+
+/* ============ SCREEN 6: PULSE ============ */
+function renderPulse(){
+  const el = document.getElementById('pulseContent');
+  if(!state.growthPoint && !state.destructorAcknowledged){
+    el.innerHTML = `<div class="card muted">Пульс-трекер станет активным после выбора точки роста (и/или подтверждения работы над критической зоной).</div>`;
+    return;
+  }
+  const code = state.growthPoint;
+  const base = code ? COMPETENCIES.find(c=>c.code===code) : null;
+  const growthSeries = base ? [base.percentile, base.percentile+5, base.percentile+9, Math.min(97, base.percentile+13)] : null;
+  const destr = DESTRUCTORS.find(d=>d.id==='d3');
+  const destrSeries = state.destructorAcknowledged ? [destr.percentile, 15, 24, 34] : null;
+  const labels = ['Baseline','+6 нед.','+12 нед.','+18 нед.'];
+
+  let html = `<div class="card"><h3>Динамика перцентиля</h3>`;
+  if(!growthSeries && !destrSeries){
+    html += `<div class="muted">Нет данных для отображения.</div></div>`;
+    el.innerHTML = html;
+    return;
+  }
+  html += `<div class="linechart-wrap"><svg class="linechart" id="pulseSvg" viewBox="0 0 640 220" preserveAspectRatio="none"></svg></div>`;
+  html += `<div class="legend" id="pulseLegend"></div>`;
+  html += `<button class="toggle-table" id="togglePulseTable">Показать как таблицу</button><div id="pulseTable" style="display:none;"></div>`;
+  html += `</div>`;
+  el.innerHTML = html;
+
+  drawLineChart('pulseSvg', labels,
+    [
+      growthSeries ? {name: base.name, color:'var(--series-blue)', data: growthSeries} : null,
+      destrSeries ? {name:'Деструктор: нет видения', color:'var(--series-red)', data: destrSeries} : null,
+    ].filter(Boolean)
+  );
+
+  const legend = document.getElementById('pulseLegend');
+  legend.innerHTML = '';
+  if(growthSeries) legend.innerHTML += `<div class="item"><span class="swatch" style="background:var(--series-blue)"></span>${base.name}</div>`;
+  if(destrSeries) legend.innerHTML += `<div class="item"><span class="swatch" style="background:var(--series-red)"></span>Деструктор: нет видения</div>`;
+
+  const tableWrap = document.getElementById('pulseTable');
+  let t = '<table class="twin"><thead><tr><th>Точка</th>';
+  if(growthSeries) t += `<th>${base.name}</th>`;
+  if(destrSeries) t += `<th>Деструктор</th>`;
+  t += '</tr></thead><tbody>';
+  labels.forEach((l,i)=>{
+    t += `<tr><td>${l}</td>`;
+    if(growthSeries) t += `<td class="num">${growthSeries[i]}</td>`;
+    if(destrSeries) t += `<td class="num">${destrSeries[i]}</td>`;
+    t += '</tr>';
+  });
+  t += '</tbody></table>';
+  tableWrap.innerHTML = t;
+  document.getElementById('togglePulseTable').addEventListener('click', function(){
+    const tw = document.getElementById('pulseTable');
+    const svgWrap = document.querySelector('.linechart-wrap');
+    const showing = tw.style.display !== 'none';
+    tw.style.display = showing?'none':'block';
+    svgWrap.style.display = showing?'block':'none';
+    this.textContent = showing ? 'Показать как таблицу' : 'Показать как график';
+  });
+}
+
+function drawLineChart(svgId, labels, series){
+  const svg = document.getElementById(svgId);
+  const W = 640, H = 220, padL = 34, padR = 10, padT = 14, padB = 26;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const x = i => padL + (i/(labels.length-1)) * plotW;
+  const y = v => padT + plotH - (v/100)*plotH;
+
+  let svgHtml = '';
+  // reference hairlines at 10/70/90
+  [10,70,90].forEach(v=>{
+    svgHtml += `<line x1="${padL}" y1="${y(v)}" x2="${W-padR}" y2="${y(v)}" stroke="var(--gridline)" stroke-width="1"/>`;
+    svgHtml += `<text x="${padL-6}" y="${y(v)+3}" text-anchor="end" font-size="9" fill="var(--text-muted)">${v}</text>`;
+  });
+  // baseline axis
+  svgHtml += `<line x1="${padL}" y1="${padT+plotH}" x2="${W-padR}" y2="${padT+plotH}" stroke="var(--baseline)" stroke-width="1"/>`;
+  // x labels
+  labels.forEach((l,i)=>{
+    svgHtml += `<text x="${x(i)}" y="${H-6}" text-anchor="middle" font-size="9.5" fill="var(--text-muted)">${l}</text>`;
+  });
+
+  series.forEach(s=>{
+    const pts = s.data.map((v,i)=>[x(i), y(v)]);
+    const path = pts.map((p,i)=>(i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+    svgHtml += `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    pts.forEach((p,i)=>{
+      svgHtml += `<circle class="pt" cx="${p[0]}" cy="${p[1]}" r="5" fill="${s.color}" stroke="var(--surface-1)" stroke-width="2"
+        data-label="${escapeAttr(s.name)}" data-value="${s.data[i]}" data-x="${labels[i]}" style="cursor:pointer;"/>`;
+    });
+  });
+  svg.innerHTML = svgHtml;
+
+  const tip = document.getElementById('lcTooltip');
+  svg.querySelectorAll('circle.pt').forEach(c=>{
+    c.addEventListener('mouseenter', (e)=>{
+      tip.style.opacity = '1';
+      tip.innerHTML = `<b>${c.dataset.value}</b> · ${c.dataset.label}<br>${c.dataset.x}`;
+      positionSvgTip(tip, c, svg);
+    });
+    c.addEventListener('mousemove', ()=> positionSvgTip(tip, c, svg));
+    c.addEventListener('mouseleave', ()=>{ tip.style.opacity = '0'; });
+  });
+}
+function positionSvgTip(tip, circle, svg){
+  const r = svg.getBoundingClientRect();
+  const cx = parseFloat(circle.getAttribute('cx')), cy = parseFloat(circle.getAttribute('cy'));
+  const scaleX = r.width/640, scaleY = r.height/220;
+  tip.style.position='fixed';
+  tip.style.left = (r.left + cx*scaleX) + 'px';
+  tip.style.top = (r.top + cy*scaleY) + 'px';
+}
+function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+
+/* ============ SCREEN 7: HR DASHBOARD ============ */
+const LEADERS = [
+  {name:'А. Петрова', seed:3},
+  {name:'И. Смирнов', seed:11},
+  {name:'Е. Ковалёва', seed:7},
+  {name:'Д. Орлов', seed:19},
+  {name:'М. Захарова', seed:5},
+  {name:'С. Волков', seed:23},
+  {name:'Н. Соколова', seed:2},
+  {name:'Р. Гриценко', seed:17},
+];
+function pseudo(seed, i){
+  const v = Math.abs(Math.sin(seed*13.37 + i*7.77)) * 100;
+  return Math.round(v);
+}
+function blueForPct(p){
+  const steps = [[20,'#cde2fb'],[35,'#9ec5f4'],[50,'#6da7ec'],[65,'#3987e5'],[75,'#2a78d6'],[85,'#1c5cab'],[95,'#104281'],[101,'#0d366b']];
+  for(const [max,hex] of steps) if(p<=max) return hex;
+  return steps[steps.length-1][1];
+}
+function renderHR(){
+  const table = document.getElementById('heatTable');
+  let html = '<thead><tr><th></th>' + DESTRUCTORS.map(d=>`<th class="col">${d.name}</th>`).join('') + '</tr></thead><tbody>';
+  const cellData = [];
+  LEADERS.forEach((l,li)=>{
+    html += `<tr><th>${l.name}</th>`;
+    DESTRUCTORS.forEach((d,di)=>{
+      const p = pseudo(l.seed, di+1);
+      const crit = p < 10;
+      cellData.push({leader:l.name, destructor:d.name, p, crit});
+      html += `<td class="cell" data-leader="${l.name}" data-destr="${escapeAttr(d.name)}" data-p="${p}" style="background:${blueForPct(p)};">${crit?'<span class="rd"></span>':''}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  table.innerHTML = html;
+
+  const tip = document.getElementById('heatTooltip');
+  table.querySelectorAll('td.cell').forEach(td=>{
+    td.addEventListener('mouseenter', ()=>{
+      tip.style.opacity='1';
+      tip.innerHTML = `<b>${td.dataset.p}</b> перц. · ${td.dataset.leader}<br>${td.dataset.destr}${td.dataset.p<10?'<br><span style="color:#ff9b9b">Критическая зона</span>':''}`;
+      const r = td.getBoundingClientRect();
+      tip.style.left = (r.left + r.width/2) + 'px';
+      tip.style.top = (r.top - 8) + 'px';
+      tip.style.transform = 'translate(-50%,-100%)';
+    });
+    td.addEventListener('mouseleave', ()=>{ tip.style.opacity='0'; });
+  });
+
+  // table twin
+  const twin = document.getElementById('heatTableTwin');
+  let t = '<table class="twin"><thead><tr><th>Руководитель</th><th>Деструктор</th><th>Перцентиль</th></tr></thead><tbody>';
+  cellData.filter(c=>c.crit).forEach(c=>{
+    t += `<tr><td>${c.leader}</td><td>${c.destructor}</td><td class="num">${c.p}</td></tr>`;
+  });
+  if(!cellData.some(c=>c.crit)) t += '<tr><td colspan="3" class="muted">Критических зон не обнаружено</td></tr>';
+  t += '</tbody></table><div class="footnote">В таблице — только критические ячейки (&lt; 10 перц.). Полная матрица доступна на графике.</div>';
+  twin.innerHTML = t;
+
+  // cluster legend
+  const cl = document.getElementById('clusterLegend');
+  cl.innerHTML = Object.entries(CLUSTER_COLOR_VAR).map(([name,varname])=>
+    `<div class="item"><span class="dot" style="background:var(${varname})"></span>${name}</div>`
+  ).join('');
+
+  // leader top strengths
+  const leaderList = document.getElementById('leaderList');
+  leaderList.innerHTML = '';
+  LEADERS.forEach((l,li)=>{
+    const scored = COMPETENCIES.map((c,ci)=>({...c, p: pseudo(l.seed+50, ci+1)})).sort((a,b)=>b.p-a.p).slice(0,2);
+    const hasCrit = cellData.some(c=>c.leader===l.name && c.crit);
+    const row = document.createElement('div');
+    row.className = 'leader-row';
+    row.innerHTML = `
+      <div class="lname">${l.name}</div>
+      <div class="chipset">
+        ${scored.map(s=>`<span class="badgechip"><span class="dot" style="background:var(${CLUSTER_COLOR_VAR[s.cluster]})"></span>${s.name} · ${s.p}</span>`).join('')}
+      </div>
+      ${hasCrit ? '<span class="flag">⚠ есть критическая зона</span>' : ''}
+    `;
+    leaderList.appendChild(row);
+  });
+}
+document.getElementById('toggleHeatTable').addEventListener('click', function(){
+  const t = document.getElementById('heatTableTwin');
+  const scroll = document.querySelector('.heatmap-scroll');
+  const showing = t.style.display !== 'none';
+  t.style.display = showing?'none':'block';
+  scroll.style.display = showing?'block':'none';
+  this.textContent = showing ? 'Показать как таблицу' : 'Показать как график';
+});
+
+/* ============ RENDER ALL ============ */
+function renderAll(){
+  renderDestructors();
+  renderStrength();
+  renderGrowth();
+  renderPlan();
+  renderTrainer();
+  renderPulse();
+  renderHR();
+}
+renderAll();
+</script>
+</body>
+</html>
