@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Компас руководителя — презентация для инвесторов</title>
+<style>
+  :root, .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --zone-muted:     #d9d8d2;
+
+    --series-blue:    #2a78d6;
+    --series-blue-strong: #104281;
+    --cl-1: #2a78d6;
+    --cl-2: #eb6834;
+    --cl-3: #1baf7a;
+    --cl-4: #eda100;
+    --cl-5: #e87ba4;
+
+    --status-good:     #0ca30c;
+    --status-critical: #d03b3b;
+    --success-text:    #006300;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1: #1a1a19; --page: #0d0d0d;
+      --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #898781;
+      --gridline: #2c2c2a; --baseline: #383835; --border: rgba(255,255,255,0.10);
+      --zone-muted: #33332f;
+      --series-blue: #3987e5; --series-blue-strong: #86b6ef;
+      --cl-1:#3987e5; --cl-2:#d95926; --cl-3:#199e70; --cl-4:#c98500; --cl-5:#d55181;
+      --status-good:#0ca30c; --status-critical:#e66767; --success-text:#0ca30c;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1: #1a1a19; --page: #0d0d0d;
+    --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #898781;
+    --gridline: #2c2c2a; --baseline: #383835; --border: rgba(255,255,255,0.10);
+    --zone-muted: #33332f;
+    --series-blue: #3987e5; --series-blue-strong: #86b6ef;
+    --cl-1:#3987e5; --cl-2:#d95926; --cl-3:#199e70; --cl-4:#c98500; --cl-5:#d55181;
+    --status-good:#0ca30c; --status-critical:#e66767; --success-text:#0ca30c;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+  }
+
+  .deck { position: relative; width: 100%; height: 100vh; overflow: hidden; }
+
+  .slide {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    width: 100%; height: 100%;
+    padding: 6vh 9vw;
+    background: var(--page);
+  }
+  .slide.active { display: flex; }
+
+  .kicker {
+    text-transform: uppercase; letter-spacing: .1em; font-size: 13px;
+    color: var(--series-blue); font-weight: 700; margin-bottom: 14px;
+  }
+  h1.big { font-size: clamp(30px, 4.2vw, 52px); line-height: 1.15; margin: 0 0 18px; letter-spacing: -0.01em; }
+  h2.slide-title { font-size: clamp(24px, 3vw, 36px); margin: 0 0 28px; letter-spacing: -0.01em; }
+  p.lead { font-size: clamp(16px, 1.6vw, 21px); color: var(--text-secondary); line-height: 1.55; max-width: 780px; margin: 0 0 10px; }
+  .muted { color: var(--text-muted); }
+
+  ul.pitch-list { list-style: none; margin: 0; padding: 0; max-width: 820px; }
+  ul.pitch-list li {
+    display: flex; gap: 14px; align-items: flex-start;
+    font-size: clamp(15px, 1.35vw, 19px); color: var(--text-secondary);
+    padding: 10px 0; border-bottom: 1px solid var(--gridline); line-height: 1.5;
+  }
+  ul.pitch-list li:last-child { border-bottom: none; }
+  ul.pitch-list li b { color: var(--text-primary); }
+  ul.pitch-list .num {
+    flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--series-blue); color: #fff; font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; margin-top: 2px;
+  }
+
+  /* stat tiles */
+  .stat-row { display: flex; gap: 40px; flex-wrap: wrap; margin-top: 10px; }
+  .stat-tile { min-width: 220px; }
+  .stat-tile .value { font-size: clamp(44px, 6vw, 76px); font-weight: 700; line-height: 1; color: var(--text-primary); }
+  .stat-tile .value.accent { color: var(--series-blue); }
+  .stat-tile .value.warn { color: var(--status-critical); }
+  .stat-tile .label { font-size: 14px; color: var(--text-secondary); margin-top: 8px; max-width: 260px; line-height: 1.4; }
+
+  /* curve illustration */
+  .curve-wrap { display:flex; gap: 40px; align-items:center; flex-wrap: wrap; margin-top: 10px; }
+  svg.curve { width: 560px; max-width: 100%; height: 300px; }
+
+  /* comparison table */
+  table.compare { border-collapse: collapse; width: 100%; max-width: 900px; margin-top: 10px; }
+  table.compare th, table.compare td { text-align: left; padding: 12px 16px; font-size: 14.5px; border-bottom: 1px solid var(--gridline); vertical-align: top; }
+  table.compare th { color: var(--text-muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
+  table.compare td.bad { color: var(--status-critical); }
+  table.compare td.good { color: var(--success-text); font-weight: 600; }
+
+  /* flow diagram */
+  .flow { display: flex; align-items: stretch; gap: 0; margin-top: 20px; flex-wrap: wrap; }
+  .flow-box {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 22px; flex: 1; min-width: 220px;
+  }
+  .flow-box h4 { margin: 0 0 8px; font-size: 16px; }
+  .flow-box p { margin: 0; font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; }
+  .flow-arrow { display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--text-muted); padding: 0 14px; }
+
+  /* screens grid */
+  .screens-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 10px; width: 100%; max-width: 980px; }
+  .screen-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .screen-card .n { font-size: 11px; color: var(--series-blue); font-weight: 700; }
+  .screen-card h5 { margin: 4px 0 6px; font-size: 14px; }
+  .screen-card p { margin: 0; font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+
+  /* status checklist */
+  .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 900px; margin-top: 10px; }
+  .status-item { display: flex; gap: 12px; align-items: flex-start; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .status-item .ic { width: 22px; height: 22px; border-radius: 50%; background: var(--status-good); color: #fff; flex: 0 0 auto; display:flex; align-items:center; justify-content:center; font-size: 12px; font-weight: 800; }
+  .status-item div p { margin: 0; font-size: 13.5px; color: var(--text-secondary); line-height: 1.4; }
+  .status-item div b { font-size: 14.5px; }
+
+  /* segments */
+  .segments { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+  .segment-card { flex: 1; min-width: 240px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .segment-card .tag { display:inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing:.05em; color: var(--series-blue); margin-bottom: 8px; }
+  .segment-card h4 { margin: 0 0 8px; font-size: 16px; }
+  .segment-card p { margin: 0; font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; }
+
+  /* roadmap */
+  .roadmap { display: flex; margin-top: 30px; max-width: 980px; width: 100%; }
+  .phase { flex: 1; position: relative; padding: 0 16px 0 0; }
+  .phase .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--series-blue); margin-bottom: 12px; }
+  .phase .line { position: absolute; top: 6px; left: 14px; right: -16px; height: 2px; background: var(--gridline); }
+  .phase:last-child .line { display: none; }
+  .phase h5 { font-size: 13px; margin: 0 0 6px; color: var(--series-blue); text-transform: uppercase; letter-spacing: .04em; }
+  .phase p { font-size: 13px; color: var(--text-secondary); margin: 0; line-height: 1.45; }
+
+  /* closing */
+  .cta-box { background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; padding: 28px 32px; max-width: 720px; margin-top: 20px; }
+  .cta-box p { font-size: 15px; color: var(--text-secondary); line-height: 1.55; margin: 6px 0; }
+
+  /* nav */
+  .deck-nav {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 14px; z-index: 50;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 999px;
+    padding: 8px 10px; box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  }
+  .deck-nav button {
+    border: none; background: transparent; color: var(--text-secondary); cursor: pointer;
+    width: 30px; height: 30px; border-radius: 50%; font-size: 15px; display:flex; align-items:center; justify-content:center;
+  }
+  .deck-nav button:hover { background: var(--zone-muted); }
+  .deck-nav .counter { font-size: 12px; color: var(--text-muted); min-width: 46px; text-align: center; font-variant-numeric: tabular-nums; }
+  .dots { display: flex; gap: 5px; margin: 0 4px; }
+  .dots button { width: 6px; height: 6px; padding: 0; border-radius: 50%; background: var(--zone-muted); }
+  .dots button.active { background: var(--series-blue); width: 16px; border-radius: 4px; }
+
+  .theme-toggle {
+    position: fixed; top: 18px; right: 18px; z-index: 50;
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-secondary);
+    border-radius: 8px; padding: 6px 10px; font-size: 12px; cursor: pointer;
+  }
+  .brandmark { position: fixed; top: 22px; left: 9vw; font-size: 13px; color: var(--text-muted); font-weight: 600; z-index: 40; }
+
+  @media print {
+    .deck-nav, .theme-toggle, .brandmark { display: none !important; }
+    .deck { height: auto; overflow: visible; }
+    .slide { display: flex !important; height: 100vh; page-break-after: always; }
+  }
+
+  @media (max-width: 800px) {
+    .screens-grid { grid-template-columns: repeat(2, 1fr); }
+    .status-grid { grid-template-columns: 1fr; }
+    .roadmap { flex-direction: column; gap: 18px; }
+    .phase .line { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="brandmark">Компас руководителя</div>
+<button class="theme-toggle" id="themeToggle">🌓</button>
+
+<div class="deck viz-root" id="deck">
+
+  <!-- 1 -->
+  <section class="slide active">
+    <div class="kicker">Инвестиционная презентация</div>
+    <h1 class="big">Компас руководителя</h1>
+    <p class="lead">Платформа диагностики управленческой компетенции: находит, что именно ломает восприятие руководителя как лидера, и указывает одну точку роста — вместо универсального плана развития, который не работает.</p>
+    <p class="lead muted">Основано на модели источников власти (French &amp; Raven) и данных исследований лидерства Zenger Folkman.</p>
+  </section>
+
+  <!-- 2: PROBLEM -->
+  <section class="slide">
+    <div class="kicker">Проблема</div>
+    <h2 class="slide-title">Индустрия развития лидеров тратит бюджеты — и не получает результата</h2>
+    <div class="stat-row">
+      <div class="stat-tile">
+        <div class="value warn">28%</div>
+        <div class="label">руководителей показывают реальный рост после типовых программ развития лидерства</div>
+      </div>
+      <div class="stat-tile">
+        <div class="value accent">67%</div>
+        <div class="label">такова эффективность аналогичных тренинговых программ для продавцов — почти в 2,5 раза выше</div>
+      </div>
+      <div class="stat-tile">
+        <div class="value warn">10–15%</div>
+        <div class="label">руководителей воспринимаются окружением как настоящие лидеры (по данным 360°, база Zenger Folkman &gt;1 млн оценок)</div>
+      </div>
+    </div>
+    <p class="lead" style="margin-top:28px;">Руководители получают методики, но не работают с источником проблемы — программы не различают, где реально находится их дефицит.</p>
+  </section>
+
+  <!-- 3: DIAGNOSIS -->
+  <section class="slide">
+    <div class="kicker">Почему так происходит</div>
+    <h2 class="slide-title">Восприятие лидерства растёт нелинейно</h2>
+    <div class="curve-wrap">
+      <svg class="curve" viewBox="0 0 560 300">
+        <line x1="60" y1="250" x2="540" y2="250" stroke="var(--baseline)" stroke-width="1.5"/>
+        <line x1="60" y1="20" x2="60" y2="250" stroke="var(--baseline)" stroke-width="1.5"/>
+        <line x1="60" y1="250" x2="540" y2="250" stroke="var(--gridline)" stroke-width="1"/>
+        <line x1="228" y1="20" x2="228" y2="250" stroke="var(--gridline)" stroke-width="1" stroke-dasharray="0"/>
+        <line x1="444" y1="20" x2="444" y2="250" stroke="var(--gridline)" stroke-width="1"/>
+        <path d="M 60 235 C 150 232, 200 232, 228 228 C 280 218, 380 120, 444 55 C 480 35, 510 26, 540 22"
+              fill="none" stroke="var(--series-blue)" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="228" cy="228" r="5" fill="var(--series-blue)" stroke="var(--surface-1)" stroke-width="2"/>
+        <circle cx="444" cy="55" r="5" fill="var(--series-blue-strong)" stroke="var(--surface-1)" stroke-width="2"/>
+        <text x="60" y="270" font-size="11" fill="var(--text-muted)">10 перц.</text>
+        <text x="210" y="270" font-size="11" fill="var(--text-muted)">70 перц.</text>
+        <text x="426" y="270" font-size="11" fill="var(--text-muted)">90 перц.</text>
+        <text x="20" y="30" font-size="11" fill="var(--text-muted)">Восприятие</text>
+        <text x="20" y="44" font-size="11" fill="var(--text-muted)">лидерства</text>
+        <text x="80" y="205" font-size="11.5" fill="var(--text-secondary)">развитие среднего ≈ нулевой эффект</text>
+        <text x="300" y="90" font-size="11.5" fill="var(--series-blue-strong)" font-weight="700">рост экспоненциальный</text>
+      </svg>
+      <ul class="pitch-list" style="flex:1; min-width:260px;">
+        <li><span class="num">1</span><span><b>Деструкторы обнуляют всё.</b> Одна компетенция &lt;10 перцентиля перечёркивает эффект любых сильных сторон.</span></li>
+        <li><span class="num">2</span><span><b>Средний диапазон — трата ресурса.</b> Подтягивание слабых сторон с 30 до 70 перцентиля почти не меняет восприятие лидерства.</span></li>
+        <li><span class="num">3</span><span><b>Лидерство — не чек-лист.</b> Достаточно 2–3 компетенций на уровне 90+ перцентиля — из 19 существует 171 уникальная комбинация.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 4: MARKET GAP -->
+  <section class="slide">
+    <div class="kicker">Слепая зона рынка</div>
+    <h2 class="slide-title">Существующие инструменты решают не ту задачу</h2>
+    <table class="compare">
+      <thead><tr><th>Типовой 360° / LMS</th><th>Компас руководителя</th></tr></thead>
+      <tbody>
+        <tr><td class="bad">Единый профиль «идеального руководителя» для всех</td><td class="good">Уникальная точка роста под конкретного человека и контекст команды</td></tr>
+        <tr><td class="bad">Советует «подтянуть» самые слабые компетенции</td><td class="good">Осознанно не рекомендует развитие в зоне 10–70 перцентиля — это трата ресурса</td></tr>
+        <tr><td class="bad">Критические зоны тонут в общем отчёте на 19+ параметров</td><td class="good">Деструкторы &lt;10 перцентиля — приоритет №1, блокируют остальные рекомендации</td></tr>
+        <tr><td class="bad">Рекомендация = ссылка на курс/тренинг</td><td class="good">Поведенческий тренажёр «трудный диалог» на основе конкретной ситуации</td></tr>
+        <tr><td class="bad">Опирается на самооценку наравне с 360°</td><td class="good">Самооценка используется только для выявления слепых зон, не в самом скоринге</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 5: SOLUTION CONCEPT -->
+  <section class="slide">
+    <div class="kicker">Решение</div>
+    <h2 class="slide-title">Деструктор → Суперсила → Спутники</h2>
+    <p class="lead">Продукт целенаправленно сужает фокус руководителя до одной понятной последовательности действий вместо универсального плана развития.</p>
+    <div class="flow">
+      <div class="flow-box">
+        <h4>1. Погасить деструктор</h4>
+        <p>Находим компетенции &lt;10 перцентиля через 360° и блокируем остальные разделы, пока критическая зона не проработана.</p>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">
+        <h4>2. Найти точку роста</h4>
+        <p>Пересечение силы (≥70 перцентиль), личного интереса и потребности команды/организации — не общий, а персональный выбор.</p>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">
+        <h4>3. Усилить до суперсилы</h4>
+        <p>Компетенции-спутники и практика в «трудных диалогах» поднимают точку роста с 70–90 до 90+ перцентиля.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6: HOW IT WORKS -->
+  <section class="slide">
+    <div class="kicker">Как это работает</div>
+    <h2 class="slide-title">От сбора данных до измеримого сдвига восприятия</h2>
+    <ul class="pitch-list" style="max-width:900px;">
+      <li><span class="num">1</span><span><b>Опрос 360°</b> — структурированные вопросы по 19 компетенциям и 10 деструкторам от подчинённых, коллег, руководителя.</span></li>
+      <li><span class="num">2</span><span><b>Перцентильный скоринг</b> — расчёт относительно нормативной базы, не абсолютные баллы; порог валидности защищает от отчёта «на шуме».</span></li>
+      <li><span class="num">3</span><span><b>Приоритизация деструкторов</b> — критические зоны обрабатываются первыми, автоматически блокируя менее важные рекомендации.</span></li>
+      <li><span class="num">4</span><span><b>Выбор точки роста</b> — интерактивное пересечение силы, интереса и потребности команды.</span></li>
+      <li><span class="num">5</span><span><b>План и тренажёр</b> — компетенции-спутники и сценарии «трудных диалогов» вместо общего курса.</span></li>
+      <li><span class="num">6</span><span><b>Пульс-трекер</b> — точечная переоценка выбранной связки каждые 6–8 недель, трек сдвига перцентиля во времени.</span></li>
+    </ul>
+  </section>
+
+  <!-- 7: PRODUCT SCREENS -->
+  <section class="slide">
+    <div class="kicker">Продукт</div>
+    <h2 class="slide-title">Восемь экранов — один понятный путь</h2>
+    <div class="screens-grid">
+      <div class="screen-card"><div class="n">01</div><h5>Опрос 360°</h5><p>Сбор структурированной обратной связи от команды</p></div>
+      <div class="screen-card"><div class="n">02</div><h5>Деструкторы</h5><p>Критические зоны и что с ними делать в первую очередь</p></div>
+      <div class="screen-card"><div class="n">03</div><h5>Карта силы</h5><p>19 компетенций, сильные стороны и слепые зоны</p></div>
+      <div class="screen-card"><div class="n">04</div><h5>Точка роста</h5><p>Пересечение силы, интереса и потребности команды</p></div>
+      <div class="screen-card"><div class="n">05</div><h5>План развития</h5><p>Компетенции-спутники под выбранную точку роста</p></div>
+      <div class="screen-card"><div class="n">06</div><h5>Тренажёр</h5><p>«Трудные диалоги» — сценарий, скрипт, рефлексия</p></div>
+      <div class="screen-card"><div class="n">07</div><h5>Пульс-трекер</h5><p>Динамика перцентиля во времени</p></div>
+      <div class="screen-card"><div class="n">08</div><h5>HR-дашборд</h5><p>Карта рисков и суперсил по всей команде/оргструктуре</p></div>
+    </div>
+  </section>
+
+  <!-- 8: STATUS -->
+  <section class="slide">
+    <div class="kicker">Что уже сделано</div>
+    <h2 class="slide-title">Концепция проверена в работающем прототипе</h2>
+    <div class="status-grid">
+      <div class="status-item"><div class="ic">✓</div><div><b>Рабочее приложение (React + Vite)</b><p>Полный флоу от опроса до HR-дашборда, кликабельно от начала до конца</p></div></div>
+      <div class="status-item"><div class="ic">✓</div><div><b>Перцентильный скоринг-движок</b><p>Реальный расчёт по ответам 360° с защитой от отчёта на недостаточных данных</p></div></div>
+      <div class="status-item"><div class="ic">✓</div><div><b>Матрица компетенций-спутников</b><p>19×7 обоснованных связок — ядро рекомендательной логики</p></div></div>
+      <div class="status-item"><div class="ic">✓</div><div><b>Автотесты ключевой бизнес-логики</b><p>Блокировка деструктором, пересечение фильтров, исключение самооценки из скоринга</p></div></div>
+    </div>
+    <p class="lead muted" style="margin-top:22px;">Статус — валидированный прототип, не коммерческий продукт с пользователями. Следующий шаг — пилоты с реальными командами.</p>
+  </section>
+
+  <!-- 9: MARKET SEGMENTS -->
+  <section class="slide">
+    <div class="kicker">Кому это нужно</div>
+    <h2 class="slide-title">Три канала выхода на рынок</h2>
+    <div class="segments">
+      <div class="segment-card">
+        <span class="tag">B2B Enterprise</span>
+        <h4>HR / L&amp;D департаменты</h4>
+        <p>Компании, где уже проводят 360° и хотят получать не отчёт, а конкретное решение — что делать с результатом.</p>
+      </div>
+      <div class="segment-card">
+        <span class="tag">B2B2B</span>
+        <h4>Коучи и консалтинговые агентства</h4>
+        <p>Инструмент для сессий развития руководителей — структурирует диагностику и даёт материал для практики.</p>
+      </div>
+      <div class="segment-card">
+        <span class="tag">B2C / Self-serve</span>
+        <h4>Руководители напрямую</h4>
+        <p>Самостоятельная диагностика через опрос своей команды, без участия HR — точка входа для расширения в компанию.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10: BUSINESS MODEL -->
+  <section class="slide">
+    <div class="kicker">Бизнес-модель</div>
+    <h2 class="slide-title">Форма монетизации</h2>
+    <ul class="pitch-list" style="max-width:820px;">
+      <li><span class="num">1</span><span><b>SaaS-подписка для организаций</b> — доступ для HR/L&amp;D к дашборду команды и повторным циклам 360°.</span></li>
+      <li><span class="num">2</span><span><b>Партнёрская модель для коучей</b> — white-label / инструмент для сессий с собственными клиентами.</span></li>
+      <li><span class="num">3</span><span><b>Индивидуальный доступ</b> — точка входа для руководителя, который приводит свою команду и затем свою организацию.</span></li>
+    </ul>
+    <p class="lead muted" style="margin-top:18px;">Конкретные тарифы и сроки запуска — предмет отдельного обсуждения после пилотов.</p>
+  </section>
+
+  <!-- 11: MOAT -->
+  <section class="slide">
+    <div class="kicker">Почему это защищаемо</div>
+    <h2 class="slide-title">Накопительное преимущество, а не разовая фича</h2>
+    <ul class="pitch-list" style="max-width:860px;">
+      <li><span class="num">1</span><span><b>Нормативная база растёт с данными.</b> Чем больше 360°-ответов проходит через платформу, тем точнее перцентильная модель — классический data moat.</span></li>
+      <li><span class="num">2</span><span><b>Библиотека поведенческих тренажёров</b> — «трудные диалоги» и матрица спутников накапливаются и уточняются, это не статичный контент.</span></li>
+      <li><span class="num">3</span><span><b>Продукт учит не совпадать с конкурентами.</b> Явный отказ от «универсального профиля лидера» — позиционирование, которое сложно скопировать без смены всей методологии.</span></li>
+    </ul>
+  </section>
+
+  <!-- 12: ROADMAP -->
+  <section class="slide">
+    <div class="kicker">Дальнейшие шаги</div>
+    <h2 class="slide-title">Дорожная карта (по фазам)</h2>
+    <div class="roadmap">
+      <div class="phase"><div class="dot"></div><div class="line"></div><h5>Фаза 1</h5><p>Пилоты с несколькими командами, проверка модели на реальных 360°-данных</p></div>
+      <div class="phase"><div class="dot"></div><div class="line"></div><h5>Фаза 2</h5><p>Калибровка нормативной базы перцентилей на собранных данных вместо синтетической</p></div>
+      <div class="phase"><div class="dot"></div><div class="line"></div><h5>Фаза 3</h5><p>Enterprise-функции: HR-дашборд на несколько команд, интеграции с HRIS</p></div>
+      <div class="phase"><div class="dot"></div><h5>Фаза 4</h5><p>Масштабирование через партнёров-коучей и консалтинговые агентства</p></div>
+    </div>
+  </section>
+
+  <!-- 13: CTA -->
+  <section class="slide">
+    <div class="kicker">Итог</div>
+    <h1 class="big">Мы не чиним весь профиль руководителя. Мы находим одну точку, которая меняет всё.</h1>
+    <div class="cta-box">
+      <p><b>Проблема:</b> 72% программ развития лидеров не дают результата, потому что советуют закрывать пробелы, которые никто не замечает.</p>
+      <p><b>Решение:</b> перцентильная диагностика + приоритизация деструкторов + компетенции-спутники + поведенческая практика.</p>
+      <p><b>Статус:</b> работающий прототип, готовый к пилотным внедрениям.</p>
+      <p style="margin-top:14px;">Ищем партнёров для пилотных внедрений и доработки продукта до готовности к рынку.</p>
+    </div>
+  </section>
+
+</div>
+
+<div class="deck-nav">
+  <button id="prevBtn" aria-label="Предыдущий слайд">‹</button>
+  <div class="dots" id="dots"></div>
+  <button id="nextBtn" aria-label="Следующий слайд">›</button>
+  <div class="counter" id="counter">1 / 13</div>
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const dotsWrap = document.getElementById('dots');
+  const counter = document.getElementById('counter');
+  let current = 0;
+
+  slides.forEach((_, i) => {
+    const dot = document.createElement('button');
+    dot.addEventListener('click', () => go(i));
+    dotsWrap.appendChild(dot);
+  });
+
+  function render() {
+    slides.forEach((s, i) => s.classList.toggle('active', i === current));
+    Array.from(dotsWrap.children).forEach((d, i) => d.classList.toggle('active', i === current));
+    counter.textContent = `${current + 1} / ${slides.length}`;
+  }
+  function go(i) {
+    current = Math.max(0, Math.min(slides.length - 1, i));
+    render();
+  }
+
+  document.getElementById('prevBtn').addEventListener('click', () => go(current - 1));
+  document.getElementById('nextBtn').addEventListener('click', () => go(current + 1));
+
+  document.addEventListener('keydown', (e) => {
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { go(current + 1); e.preventDefault(); }
+    if (['ArrowLeft', 'PageUp'].includes(e.key)) { go(current - 1); e.preventDefault(); }
+  });
+
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const html = document.documentElement;
+    const cur = html.getAttribute('data-theme');
+    html.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+  });
+
+  render();
+</script>
+</body>
+</html>
