@@ -150,6 +150,13 @@ func (o OpenAnswer) Validate() error {
 	return nil
 }
 
+// ScoredResponse — сохранённая анкета в виде, пригодном для расчёта профиля.
+// Живёт здесь, а не в store: на неё опирается и хранилище, и скоринг.
+type ScoredResponse struct {
+	Role    Role
+	Answers []Answer
+}
+
 // Submission — присланная анкета целиком.
 type Submission struct {
 	Role        Role

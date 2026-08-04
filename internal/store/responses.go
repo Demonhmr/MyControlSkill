@@ -20,12 +20,6 @@ type Response struct {
 	SubmittedAt  time.Time
 }
 
-// ScoredResponse — анкета в виде, пригодном для расчёта профиля.
-type ScoredResponse struct {
-	Role    domain.Role
-	Answers []domain.Answer
-}
-
 // Counts — сколько анкет собрано в раунде.
 type Counts struct {
 	External int
@@ -194,7 +188,7 @@ func (s *Store) CountResponses(ctx context.Context, assessmentID string) (Counts
 // Порядок по rowid — это порядок поступления анкет. Он важен не сам по себе,
 // а тем, что строки одной анкеты идут подряд: сборка опирается на смену
 // идентификатора.
-func (s *Store) ResponsesForScoring(ctx context.Context, assessmentID string) ([]ScoredResponse, error) {
+func (s *Store) ResponsesForScoring(ctx context.Context, assessmentID string) ([]domain.ScoredResponse, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT r.id, r.role, a.kind, a.code, a.item_index, a.value
 		   FROM response r
@@ -207,7 +201,7 @@ func (s *Store) ResponsesForScoring(ctx context.Context, assessmentID string) ([
 	defer rows.Close()
 
 	var (
-		out       []ScoredResponse
+		out       []domain.ScoredResponse
 		currentID string
 	)
 	for rows.Next() {
@@ -223,7 +217,7 @@ func (s *Store) ResponsesForScoring(ctx context.Context, assessmentID string) ([
 		}
 
 		if id != currentID {
-			out = append(out, ScoredResponse{Role: domain.Role(role)})
+			out = append(out, domain.ScoredResponse{Role: domain.Role(role)})
 			currentID = id
 		}
 		// LEFT JOIN: анкета без единой оценки даёт строку с пустыми полями.
