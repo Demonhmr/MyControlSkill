@@ -9,7 +9,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -44,11 +43,11 @@ func run(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	db, err := store.Open(ctx, cfg.DBPath)
+	st, err := store.Open(ctx, cfg.DBPath)
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer st.Close()
 	log.Info("база готова", "path", cfg.DBPath)
 
 	if _, err := os.Stat(cfg.StaticDir); err != nil {
@@ -59,7 +58,7 @@ func run(log *slog.Logger) error {
 
 	server := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           routes(db, cfg.StaticDir),
+		Handler:           routes(st, cfg.StaticDir),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
@@ -84,9 +83,9 @@ func run(log *slog.Logger) error {
 	return server.Shutdown(shutdownCtx)
 }
 
-func routes(db *sql.DB, staticDir string) http.Handler {
+func routes(st *store.Store, staticDir string) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", healthz(db))
+	mux.HandleFunc("GET /healthz", healthz(st))
 	// Всё остальное — оболочка SPA. Обработчики /api/... появятся следующими
 	// шагами и перехватят свои пути раньше этого маршрута.
 	mux.Handle("/", web.SPA(os.DirFS(staticDir)))
@@ -95,14 +94,14 @@ func routes(db *sql.DB, staticDir string) http.Handler {
 
 // healthz отвечает 200 только если база действительно отвечает: иначе
 // балансировщик будет слать трафик на экземпляр с отвалившимся SQLite.
-func healthz(db *sql.DB) http.HandlerFunc {
+func healthz(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()
 
 		status := http.StatusOK
 		body := map[string]string{"status": "ok"}
-		if err := db.PingContext(ctx); err != nil {
+		if err := st.Ping(ctx); err != nil {
 			status = http.StatusServiceUnavailable
 			body = map[string]string{"status": "db unavailable"}
 		}

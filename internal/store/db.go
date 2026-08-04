@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	_ "modernc.org/sqlite"
 )
@@ -24,9 +25,29 @@ import (
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
 
+// Store — доступ к данным поверх SQLite.
+type Store struct {
+	db *sql.DB
+
+	// writeMu сериализует транзакции, которые сначала читают, а затем пишут.
+	//
+	// Без него две такие транзакции берут снимок на чтение и одновременно
+	// пытаются повысить блокировку до записи. SQLite отвечает SQLITE_BUSY
+	// немедленно, не дожидаясь busy_timeout: ожидание тут бессмысленно, обе
+	// стороны уже держат снимок и разойтись не смогут. Писатель в SQLite всё
+	// равно один, так что очередь на входе ничего не замедляет.
+	writeMu sync.Mutex
+}
+
+// Close закрывает подключение к базе.
+func (s *Store) Close() error { return s.db.Close() }
+
+// Ping проверяет доступность базы.
+func (s *Store) Ping(ctx context.Context) error { return s.db.PingContext(ctx) }
+
 // Open открывает базу по пути path, создавая каталог при необходимости,
 // и применяет все непрогнанные миграции.
-func Open(ctx context.Context, path string) (*sql.DB, error) {
+func Open(ctx context.Context, path string) (*Store, error) {
 	if dir := filepath.Dir(path); dir != "." && dir != "" {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return nil, fmt.Errorf("создание каталога для БД: %w", err)
@@ -43,7 +64,8 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 	}
 
 	// SQLite сериализует запись независимо от пула, поэтому большой пул
-	// смысла не имеет; busy_timeout в DSN гасит гонки за блокировку.
+	// смысла не имеет: соединения нужны только для параллельного чтения.
+	// Гонки за блокировку гасят busy_timeout в DSN и очередь writeMu.
 	db.SetMaxOpenConns(4)
 	db.SetMaxIdleConns(4)
 
@@ -51,7 +73,7 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 		db.Close()
 		return nil, err
 	}
-	return db, nil
+	return &Store{db: db}, nil
 }
 
 // dsn собирает строку подключения. Прагмы задаются на каждое соединение
