@@ -1,5 +1,7 @@
 import { useStore } from '../state/store.jsx';
+import { useSession } from '../state/session.jsx';
 import { clearState } from '../services/api.js';
+import { logout } from '../services/leaderApi.js';
 
 const STEPS = [
   { id: 'survey', n: 1, label: 'Опрос 360°' },
@@ -12,8 +14,14 @@ const STEPS = [
   { id: 'hr', n: 8, label: 'HR-дашборд' },
 ];
 
+// Раунды существуют только там, где есть бэкенд: в .exe приглашать некого.
+const SERVER_STEP = { id: 'rounds', n: '★', label: 'Раунды 360°' };
+
 export default function TopNav() {
   const { state, dispatch } = useStore();
+  const { mode, leader, refresh } = useSession();
+
+  const steps = mode === 'server' ? [SERVER_STEP, ...STEPS] : STEPS;
 
   const toggleTheme = () => {
     const html = document.documentElement;
@@ -27,19 +35,33 @@ export default function TopNav() {
     dispatch({ type: 'RESET_DEMO' });
   };
 
+  const signOut = async () => {
+    try {
+      await logout();
+    } finally {
+      await refresh();
+    }
+  };
+
   return (
     <header className="top">
       <div className="top-row">
         <div className="brand">
-          Компас руководителя <span>— React-прототип</span>
+          Компас руководителя{' '}
+          <span>{mode === 'server' ? `— ${leader?.email ?? ''}` : '— React-прототип'}</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="theme-btn" onClick={reset}>⟲ Сбросить демо</button>
+          {mode === 'local' && (
+            <button className="theme-btn" onClick={reset}>⟲ Сбросить демо</button>
+          )}
+          {mode === 'server' && (
+            <button className="theme-btn" onClick={signOut}>Выйти</button>
+          )}
           <button className="theme-btn" onClick={toggleTheme}>🌓 Тема</button>
         </div>
       </div>
       <nav className="steps">
-        {STEPS.map((s) => (
+        {steps.map((s) => (
           <button
             key={s.id}
             className={state.screen === s.id ? 'active' : ''}
