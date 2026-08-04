@@ -27,6 +27,16 @@ type Config struct {
 	ShutdownTimeout time.Duration
 }
 
+// SecureCookies сообщает, ставить ли флаг Secure у cookie сессии.
+//
+// Выводится из схемы BaseURL, а не задаётся отдельно: держать два
+// согласованных между собой переключателя — лишний повод их рассинхронить.
+// Локальная разработка идёт по http без BaseURL, и там браузер Secure-cookie
+// просто не сохранит.
+func (c Config) SecureCookies() bool {
+	return strings.HasPrefix(c.BaseURL, "https://")
+}
+
 const (
 	defaultAddr            = ":8080"
 	defaultDBPath          = "data/mycontrolskill.db"

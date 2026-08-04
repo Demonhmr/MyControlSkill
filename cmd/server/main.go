@@ -18,7 +18,9 @@ import (
 	"syscall"
 	"time"
 
+	"mycontrolskill/internal/api"
 	"mycontrolskill/internal/config"
+	"mycontrolskill/internal/mail"
 	"mycontrolskill/internal/store"
 	"mycontrolskill/internal/web"
 )
@@ -56,9 +58,21 @@ func run(log *slog.Logger) error {
 			"dir", cfg.StaticDir, "err", err)
 	}
 
+	apiServer := &api.Server{
+		Store:         st,
+		Mailer:        mail.NewLogMailer(log),
+		Log:           log,
+		BaseURL:       cfg.BaseURL,
+		SecureCookies: cfg.SecureCookies(),
+	}
+	if cfg.BaseURL == "" {
+		log.Warn("MCS_BASE_URL не задан: ссылки в письмах собираются из заголовков запроса, " +
+			"за обратным прокси это ненадёжно")
+	}
+
 	server := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           routes(st, cfg.StaticDir),
+		Handler:           routes(st, apiServer, cfg.StaticDir),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
@@ -83,11 +97,12 @@ func run(log *slog.Logger) error {
 	return server.Shutdown(shutdownCtx)
 }
 
-func routes(st *store.Store, staticDir string) http.Handler {
+func routes(st *store.Store, apiServer *api.Server, staticDir string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthz(st))
-	// Всё остальное — оболочка SPA. Обработчики /api/... появятся следующими
-	// шагами и перехватят свои пути раньше этого маршрута.
+	apiServer.Register(mux)
+	// Всё остальное — оболочка SPA: более длинные шаблоны маршрутов
+	// перехватывают свои пути раньше этого.
 	mux.Handle("/", web.SPA(os.DirFS(staticDir)))
 	return mux
 }
