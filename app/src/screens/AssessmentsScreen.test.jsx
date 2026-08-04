@@ -2,15 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AssessmentsScreen from './AssessmentsScreen.jsx';
-
-function jsonResponse(body, status = 200) {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    headers: { get: () => 'application/json' },
-    json: async () => body,
-  };
-}
+import { AllProviders, htmlResponse, jsonResponse, routeFetch } from '../test/helpers.jsx';
 
 const ROUND = {
   id: 'a1',
@@ -19,6 +11,33 @@ const ROUND = {
   closedAt: null,
   counts: { external: 1, self: 0, required: 3, ready: false },
 };
+
+const INVITE = {
+  id: 'i1',
+  role: 'peer',
+  email: 'peer@example.com',
+  createdAt: '2026-08-02T10:00:00.000Z',
+  usedAt: null,
+};
+
+// Экран живёт внутри приложения, поэтому проба режима тоже случается.
+// В этих тестах она отвечает как лаунчер: сам экран от режима не зависит.
+function baseRoutes(extra = {}) {
+  return {
+    'GET /api/me': htmlResponse(),
+    'GET /api/assessments': jsonResponse({ assessments: [ROUND] }),
+    ...extra,
+  };
+}
+
+function renderScreen(routes) {
+  vi.stubGlobal('fetch', routeFetch(routes));
+  render(
+    <AllProviders>
+      <AssessmentsScreen />
+    </AllProviders>
+  );
+}
 
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn());
@@ -31,53 +50,47 @@ afterEach(() => {
 
 describe('AssessmentsScreen', () => {
   it('показывает раунды со счётчиком собранных анкет', async () => {
-    fetch.mockResolvedValueOnce(jsonResponse({ assessments: [ROUND] }));
-    render(<AssessmentsScreen />);
+    renderScreen(baseRoutes());
 
     expect(await screen.findByText('Пилот, август')).toBeInTheDocument();
     expect(screen.getByText('1 из 3')).toBeInTheDocument();
   });
 
   it('сообщает, когда раундов нет', async () => {
-    fetch.mockResolvedValueOnce(jsonResponse({ assessments: [] }));
-    render(<AssessmentsScreen />);
+    renderScreen(baseRoutes({ 'GET /api/assessments': jsonResponse({ assessments: [] }) }));
 
     expect(await screen.findByText('Пока ни одного раунда.')).toBeInTheDocument();
   });
 
   it('открывает раунд и объясняет, почему профиль не считается', async () => {
     const user = userEvent.setup();
-    fetch.mockResolvedValueOnce(jsonResponse({ assessments: [ROUND] }));
-    render(<AssessmentsScreen />);
+    renderScreen(
+      baseRoutes({ 'GET /api/assessments/a1': jsonResponse({ assessment: ROUND, invites: [] }) })
+    );
 
-    fetch.mockResolvedValueOnce(jsonResponse({ assessment: ROUND, invites: [] }));
     await user.click(await screen.findByRole('button', { name: 'Пилот, август' }));
 
     expect(await screen.findByText('Профиль пока не считается')).toBeInTheDocument();
     expect(screen.getByText('Пока никого не пригласили.')).toBeInTheDocument();
+    // Смотреть нечего, пока анкет мало.
+    expect(screen.queryByRole('button', { name: 'Смотреть профиль' })).not.toBeInTheDocument();
   });
 
   it('выдаёт приглашение и показывает ссылку', async () => {
     const user = userEvent.setup();
-    fetch.mockResolvedValueOnce(jsonResponse({ assessments: [ROUND] }));
-    render(<AssessmentsScreen />);
+    let invites = [];
+    renderScreen(
+      baseRoutes({
+        'GET /api/assessments/a1': () => jsonResponse({ assessment: ROUND, invites }),
+        'POST /api/assessments/a1/invites': () => {
+          invites = [INVITE];
+          return jsonResponse({ invite: INVITE, link: 'https://example.com/s/ТОКЕН' }, 201);
+        },
+      })
+    );
 
-    fetch.mockResolvedValueOnce(jsonResponse({ assessment: ROUND, invites: [] }));
     await user.click(await screen.findByRole('button', { name: 'Пилот, август' }));
     await screen.findByText('Пригласить респондента');
-
-    const invite = {
-      id: 'i1',
-      role: 'peer',
-      email: 'peer@example.com',
-      createdAt: '2026-08-02T10:00:00.000Z',
-      usedAt: null,
-    };
-    // Ответ на выдачу приглашения, затем перезагрузка списка и раунда.
-    fetch
-      .mockResolvedValueOnce(jsonResponse({ invite, link: 'https://example.com/s/ТОКЕН' }, 201))
-      .mockResolvedValueOnce(jsonResponse({ assessments: [ROUND] }))
-      .mockResolvedValueOnce(jsonResponse({ assessment: ROUND, invites: [invite] }));
 
     await user.type(screen.getByLabelText('Почта респондента'), 'peer@example.com');
     await user.click(screen.getByRole('button', { name: 'Выдать ссылку' }));
@@ -89,14 +102,15 @@ describe('AssessmentsScreen', () => {
 
   it('объясняет отказ выдать приглашение в закрытый раунд', async () => {
     const user = userEvent.setup();
-    fetch.mockResolvedValueOnce(jsonResponse({ assessments: [ROUND] }));
-    render(<AssessmentsScreen />);
+    renderScreen(
+      baseRoutes({
+        'GET /api/assessments/a1': jsonResponse({ assessment: ROUND, invites: [] }),
+        'POST /api/assessments/a1/invites': jsonResponse({ error: 'раунд закрыт' }, 409),
+      })
+    );
 
-    fetch.mockResolvedValueOnce(jsonResponse({ assessment: ROUND, invites: [] }));
     await user.click(await screen.findByRole('button', { name: 'Пилот, август' }));
     await screen.findByText('Пригласить респондента');
-
-    fetch.mockResolvedValueOnce(jsonResponse({ error: 'раунд закрыт' }, 409));
     await user.click(screen.getByRole('button', { name: 'Выдать ссылку' }));
 
     await waitFor(() =>
@@ -107,14 +121,31 @@ describe('AssessmentsScreen', () => {
   it('в закрытом раунде не предлагает приглашать', async () => {
     const user = userEvent.setup();
     const closed = { ...ROUND, closedAt: '2026-08-03T10:00:00.000Z' };
-    fetch.mockResolvedValueOnce(jsonResponse({ assessments: [closed] }));
-    render(<AssessmentsScreen />);
+    renderScreen({
+      'GET /api/me': htmlResponse(),
+      'GET /api/assessments': jsonResponse({ assessments: [closed] }),
+      'GET /api/assessments/a1': jsonResponse({ assessment: closed, invites: [] }),
+    });
 
-    fetch.mockResolvedValueOnce(jsonResponse({ assessment: closed, invites: [] }));
     await user.click(await screen.findByRole('button', { name: 'Пилот, август' }));
 
     await screen.findByText('Приглашения');
     expect(screen.queryByText('Пригласить респондента')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Закрыть раунд' })).not.toBeInTheDocument();
+  });
+
+  it('предлагает смотреть профиль, когда анкет набралось', async () => {
+    const user = userEvent.setup();
+    const ready = { ...ROUND, counts: { external: 3, self: 1, required: 3, ready: true } };
+    renderScreen({
+      'GET /api/me': htmlResponse(),
+      'GET /api/assessments': jsonResponse({ assessments: [ready] }),
+      'GET /api/assessments/a1': jsonResponse({ assessment: ready, invites: [] }),
+    });
+
+    await user.click(await screen.findByRole('button', { name: 'Пилот, август' }));
+
+    expect(await screen.findByRole('button', { name: 'Смотреть профиль' })).toBeInTheDocument();
+    expect(screen.queryByText('Профиль пока не считается')).not.toBeInTheDocument();
   });
 });

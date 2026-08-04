@@ -1,8 +1,17 @@
-import { useMemo } from 'react';
-import { useStore } from './store.jsx';
-import { computeProfile } from '../logic/scoring';
+import { useProfileSource } from './profile.jsx';
 
+/**
+ * Профиль для экранов с числами.
+ *
+ * Откуда он взялся — локальный расчёт или агрегат с сервера — экранам знать
+ * незачем: форма одна и та же. Вызывать этот хук можно только там, где
+ * профиль заведомо есть; в сетевом режиме до готовности расчёта такие экраны
+ * не показываются вовсе (см. заслон в App.jsx).
+ */
 export function useProfile() {
-  const { state } = useStore();
-  return useMemo(() => computeProfile(state.responses), [state.responses]);
+  const { profile } = useProfileSource();
+  if (!profile) {
+    throw new Error('useProfile вызван до готовности профиля — экран должен быть за заслоном');
+  }
+  return profile;
 }

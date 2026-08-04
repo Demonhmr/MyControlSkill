@@ -1,25 +1,27 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { StoreProvider } from '../state/store.jsx';
 import DestructorsScreen from './DestructorsScreen.jsx';
 import GrowthPointScreen from './GrowthPointScreen.jsx';
+import { AllProviders } from '../test/helpers.jsx';
 
 // Свежее состояние по умолчанию содержит демо-деструктор с перцентилем 8 (< 10),
 // поэтому GrowthPointScreen заблокирован, пока его не "проработают" на DestructorsScreen.
 function renderBoth() {
   return render(
-    <StoreProvider>
+    <AllProviders>
       <DestructorsScreen />
       <GrowthPointScreen />
-    </StoreProvider>
+    </AllProviders>
   );
 }
 
 describe('GrowthPointScreen', () => {
-  it('заблокирован, пока не проработана критическая зона', () => {
+  // findBy, а не getBy: провайдеры при монтировании проверяют режим работы
+  // приложения, и синхронная проверка сработала бы до того, как проба осядет.
+  it('заблокирован, пока не проработана критическая зона', async () => {
     renderBoth();
-    expect(screen.getByText('Раздел заблокирован')).toBeInTheDocument();
+    expect(await screen.findByText('Раздел заблокирован')).toBeInTheDocument();
   });
 
   it('разблокируется после подтверждения деструктора, кнопка недоступна без интереса', async () => {

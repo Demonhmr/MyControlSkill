@@ -1,5 +1,6 @@
 import { StoreProvider, useStore } from './state/store.jsx';
 import { SessionProvider, useSession } from './state/session.jsx';
+import { ProfileProvider, useProfileSource } from './state/profile.jsx';
 import TopNav from './components/TopNav.jsx';
 import { Card } from './components/ui.jsx';
 import Survey360Screen from './screens/Survey360Screen.jsx';
@@ -12,6 +13,7 @@ import PulseScreen from './screens/PulseScreen.jsx';
 import HRDashboardScreen from './screens/HRDashboardScreen.jsx';
 import AssessmentsScreen from './screens/AssessmentsScreen.jsx';
 import LoginScreen from './screens/LoginScreen.jsx';
+import ProfileGateScreen from './screens/ProfileGateScreen.jsx';
 
 const SCREENS = {
   survey: Survey360Screen,
@@ -25,9 +27,24 @@ const SCREENS = {
   rounds: AssessmentsScreen,
 };
 
+// Экраны, которые целиком построены на числах профиля. Без готового расчёта
+// им нечего показать, кроме демо-значений, а выдавать их за результат замера
+// нельзя.
+const PROFILE_SCREENS = new Set(['destructors', 'strength', 'growth', 'plan', 'pulse']);
+
 function Shell() {
   const { state } = useStore();
-  const Screen = SCREENS[state.screen] ?? Survey360Screen;
+  const { mode } = useSession();
+  const { profile } = useProfileSource();
+
+  // «Опрос 360°» — экран демо-режима: он пишет анкеты в localStorage, и в
+  // сетевом режиме они ни на что не влияют. Там вход в приложение начинается
+  // с раундов.
+  const screen = mode === 'server' && state.screen === 'survey' ? 'rounds' : state.screen;
+
+  const needsProfile = mode === 'server' && PROFILE_SCREENS.has(screen);
+  const Screen = needsProfile && !profile ? ProfileGateScreen : SCREENS[screen] ?? Survey360Screen;
+
   return (
     <div className="app viz-root">
       <TopNav />
@@ -67,7 +84,9 @@ function Gate() {
 
   return (
     <StoreProvider>
-      <Shell />
+      <ProfileProvider>
+        <Shell />
+      </ProfileProvider>
     </StoreProvider>
   );
 }

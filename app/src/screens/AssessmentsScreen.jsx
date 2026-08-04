@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useStore } from '../state/store.jsx';
+import { useProfileSource } from '../state/profile.jsx';
 import { ROLES } from '../data/questionnaire';
 import { Card, Banner, Button, Badge } from '../components/ui.jsx';
 import {
@@ -131,6 +133,8 @@ export default function AssessmentsScreen() {
 
 function RoundDetail({ data, links, setLinks, onChanged, setError }) {
   const { assessment, invites } = data;
+  const { dispatch } = useStore();
+  const { select } = useProfileSource();
   const [role, setRole] = useState('peer');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -152,6 +156,13 @@ function RoundDetail({ data, links, setLinks, onChanged, setError }) {
     } finally {
       setBusy(false);
     }
+  };
+
+  // Раундов у руководителя несколько, а профиль показывается по одному:
+  // переключение живёт здесь, рядом со списком.
+  const showProfile = async () => {
+    await select(assessment.id);
+    dispatch({ type: 'SET_SCREEN', screen: 'destructors' });
   };
 
   const close = async () => {
@@ -182,11 +193,14 @@ function RoundDetail({ data, links, setLinks, onChanged, setError }) {
             это защита от отчёта на шуме, а не техническое ограничение.
           </Banner>
         )}
-        {!assessment.closedAt && (
-          <div className="btn-row">
+        <div className="btn-row">
+          {assessment.counts.ready && (
+            <Button onClick={showProfile}>Смотреть профиль</Button>
+          )}
+          {!assessment.closedAt && (
             <Button variant="ghost" onClick={close} disabled={busy}>Закрыть раунд</Button>
-          </div>
-        )}
+          )}
+        </div>
       </Card>
 
       {!assessment.closedAt && (

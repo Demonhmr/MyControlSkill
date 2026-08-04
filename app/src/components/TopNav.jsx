@@ -21,7 +21,10 @@ export default function TopNav() {
   const { state, dispatch } = useStore();
   const { mode, leader, refresh } = useSession();
 
-  const steps = mode === 'server' ? [SERVER_STEP, ...STEPS] : STEPS;
+  // «Опрос 360°» в сетевом режиме не нужен: анкеты заполняют приглашённые по
+  // своим ссылкам, а этот экран пишет в localStorage и ни на что не влияет.
+  const steps =
+    mode === 'server' ? [SERVER_STEP, ...STEPS.filter((s) => s.id !== 'survey')] : STEPS;
 
   const toggleTheme = () => {
     const html = document.documentElement;
@@ -64,7 +67,11 @@ export default function TopNav() {
         {steps.map((s) => (
           <button
             key={s.id}
-            className={state.screen === s.id ? 'active' : ''}
+            className={
+              state.screen === s.id || (mode === 'server' && state.screen === 'survey' && s.id === 'rounds')
+                ? 'active'
+                : ''
+            }
             onClick={() => dispatch({ type: 'SET_SCREEN', screen: s.id })}
           >
             <span className="n">{s.n}</span> {s.label}
