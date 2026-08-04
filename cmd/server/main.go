@@ -58,9 +58,14 @@ func run(log *slog.Logger) error {
 			"dir", cfg.StaticDir, "err", err)
 	}
 
+	mailer, err := newMailer(cfg, log)
+	if err != nil {
+		return err
+	}
+
 	apiServer := &api.Server{
 		Store:         st,
-		Mailer:        mail.NewLogMailer(log),
+		Mailer:        mailer,
 		Log:           log,
 		BaseURL:       cfg.BaseURL,
 		SecureCookies: cfg.SecureCookies(),
@@ -95,6 +100,35 @@ func run(log *slog.Logger) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 	return server.Shutdown(shutdownCtx)
+}
+
+// newMailer выбирает способ доставки писем.
+//
+// Без настроенного SMTP сервис работает, но ссылки уходят в лог — войти
+// сможет только тот, у кого есть доступ к логам. Для разработки это удобно,
+// для боевого запуска недопустимо, поэтому предупреждение громкое.
+func newMailer(cfg config.Config, log *slog.Logger) (mail.Mailer, error) {
+	if !cfg.SMTP.Enabled() {
+		log.Warn("MCS_SMTP_HOST не задан: письма не отправляются, ссылки выводятся в лог. " +
+			"Для боевого запуска настройте почту")
+		return mail.NewLogMailer(log), nil
+	}
+
+	mailer, err := mail.NewSMTPMailer(mail.SMTPConfig{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		Username: cfg.SMTP.Username,
+		Password: cfg.SMTP.Password,
+		From:     cfg.SMTP.From,
+		Security: mail.Security(cfg.SMTP.Security),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info("почта настроена", "host", cfg.SMTP.Host, "port", cfg.SMTP.Port,
+		"security", cfg.SMTP.Security, "from", cfg.SMTP.From)
+	return mailer, nil
 }
 
 func routes(st *store.Store, apiServer *api.Server, staticDir string) http.Handler {
