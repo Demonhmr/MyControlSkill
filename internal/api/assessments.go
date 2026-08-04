@@ -178,6 +178,15 @@ func (s *Server) handleCreateInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Приглашение отправляет письмо на произвольный адрес, поэтому лимит
+	// нужен и здесь: аккаунт заводится по первой же ссылке, и чужой рассылке
+	// иначе мешает только вход.
+	if ok, wait := s.limiters.invitesByLeader.Allow(leader.ID); !ok {
+		s.Log.Warn("выдача приглашений ограничена", "leader", leader.ID)
+		s.tooManyRequests(w, wait)
+		return
+	}
+
 	// Почта необязательна: ссылку можно передать и вне почты, тогда
 	// отправлять нечего.
 	email := strings.TrimSpace(req.Email)

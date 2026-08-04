@@ -30,6 +30,13 @@ type Config struct {
 	// SMTP — почтовый сервер для ссылок входа и приглашений. Если хост
 	// пуст, письма не отправляются, а ссылки пишутся в лог.
 	SMTP SMTP
+
+	// TrustProxy разрешает брать адрес клиента из X-Forwarded-For.
+	//
+	// Включать только когда перед сервисом действительно стоит обратный
+	// прокси. Без прокси заголовок присылает сам клиент, и ограничение
+	// частоты по адресу обходится его подделкой.
+	TrustProxy bool
 }
 
 // SMTP — настройки почтового сервера.
@@ -79,6 +86,7 @@ func Load() (Config, error) {
 		StaticDir:       env("MCS_STATIC_DIR", defaultStaticDir),
 		BaseURL:         strings.TrimSuffix(env("MCS_BASE_URL", ""), "/"),
 		ShutdownTimeout: defaultShutdownTimeout,
+		TrustProxy:      envBool("MCS_TRUST_PROXY"),
 		SMTP: SMTP{
 			Host:     env("MCS_SMTP_HOST", ""),
 			Port:     port,
@@ -119,6 +127,16 @@ func (c Config) validate() error {
 		}
 	}
 	return nil
+}
+
+// envBool читает переключатель. Истина — только явное «да»: опечатка в
+// значении не должна молча включать доверие к заголовкам.
+func envBool(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "1", "true", "yes", "да":
+		return true
+	}
+	return false
 }
 
 func env(key, fallback string) string {

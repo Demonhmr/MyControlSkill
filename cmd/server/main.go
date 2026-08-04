@@ -69,6 +69,7 @@ func run(log *slog.Logger) error {
 		Log:           log,
 		BaseURL:       cfg.BaseURL,
 		SecureCookies: cfg.SecureCookies(),
+		TrustProxy:    cfg.TrustProxy,
 	}
 	if cfg.BaseURL == "" {
 		log.Warn("MCS_BASE_URL не задан: ссылки в письмах собираются из заголовков запроса, " +

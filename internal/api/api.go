@@ -8,8 +8,12 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"sync"
+	"time"
 
 	"mycontrolskill/internal/mail"
+	"mycontrolskill/internal/ratelimit"
 	"mycontrolskill/internal/store"
 )
 
@@ -26,10 +30,61 @@ type Server struct {
 	// SecureCookies включает флаг Secure у cookie сессии. Выключается для
 	// локальной разработки по http, где браузер такую cookie не сохранит.
 	SecureCookies bool
+	// TrustProxy разрешает брать адрес клиента из X-Forwarded-For.
+	// Включать только когда перед сервисом действительно стоит прокси:
+	// иначе заголовок подделывается и ограничение частоты обходится.
+	TrustProxy bool
+
+	limiters struct {
+		once sync.Once
+		// loginByEmail не даёт завалить письмами один ящик.
+		loginByEmail *ratelimit.Limiter
+		// loginByIP не даёт рассылать письма по многим ящикам с одного места.
+		loginByIP *ratelimit.Limiter
+		// invitesByLeader ограничивает рассылку приглашений одним аккаунтом.
+		invitesByLeader *ratelimit.Limiter
+	}
+}
+
+// Пределы подобраны так, чтобы не мешать человеку: запросить ссылку дважды
+// подряд — обычное дело, а десяток писем на один адрес за четверть часа уже
+// нет.
+const (
+	loginPerEmail    = 5
+	loginEmailBurst  = 2
+	loginEmailWindow = 15 * time.Minute
+
+	loginPerIP    = 20
+	loginIPBurst  = 5
+	loginIPWindow = time.Hour
+
+	invitesPerLeader = 60
+	invitesBurst     = 10
+	invitesWindow    = time.Hour
+)
+
+func (s *Server) initLimiters() {
+	s.limiters.once.Do(func() {
+		s.limiters.loginByEmail = ratelimit.New(loginPerEmail, loginEmailWindow, loginEmailBurst)
+		s.limiters.loginByIP = ratelimit.New(loginPerIP, loginIPWindow, loginIPBurst)
+		s.limiters.invitesByLeader = ratelimit.New(invitesPerLeader, invitesWindow, invitesBurst)
+	})
+}
+
+// tooManyRequests отвечает отказом и подсказывает, когда пробовать снова.
+func (s *Server) tooManyRequests(w http.ResponseWriter, wait time.Duration) {
+	seconds := int(wait.Seconds())
+	if seconds < 1 {
+		seconds = 1
+	}
+	w.Header().Set("Retry-After", strconv.Itoa(seconds))
+	s.writeError(w, http.StatusTooManyRequests, "слишком часто, попробуйте позже")
 }
 
 // Register вешает обработчики на общий маршрутизатор.
 func (s *Server) Register(mux *http.ServeMux) {
+	s.initLimiters()
+
 	mux.HandleFunc("POST /api/auth/login", s.handleLoginRequest)
 	mux.HandleFunc("GET /api/auth/callback", s.handleLoginCallback)
 	mux.HandleFunc("POST /api/auth/logout", s.handleLogout)

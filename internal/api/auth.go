@@ -44,6 +44,21 @@ func (s *Server) handleLoginRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Два разных ограничения. По адресу — чтобы нельзя было завалить
+	// письмами один ящик; по источнику запроса — чтобы нельзя было
+	// разослать письма по многим ящикам, меняя адрес в каждом запросе.
+	email := strings.ToLower(addr.Address)
+	if ok, wait := s.limiters.loginByEmail.Allow(email); !ok {
+		s.Log.Info("запрос ссылки ограничен по адресу", "email", email)
+		s.tooManyRequests(w, wait)
+		return
+	}
+	if ok, wait := s.limiters.loginByIP.Allow(s.clientIP(r)); !ok {
+		s.Log.Warn("запрос ссылки ограничен по источнику", "ip", s.clientIP(r))
+		s.tooManyRequests(w, wait)
+		return
+	}
+
 	token, err := s.Store.CreateLoginToken(r.Context(), addr.Address)
 	if err != nil {
 		s.Log.Error("не удалось создать ссылку для входа", "err", err)

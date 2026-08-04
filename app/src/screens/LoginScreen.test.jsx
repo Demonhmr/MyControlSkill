@@ -57,6 +57,18 @@ describe('LoginScreen', () => {
     await waitFor(() => expect(screen.getByText('Проверьте адрес почты.')).toBeInTheDocument());
   });
 
+  it('объясняет отказ по частоте, а не показывает общую ошибку', async () => {
+    const user = userEvent.setup();
+    render(<LoginScreen />);
+
+    await user.type(screen.getByLabelText('Рабочая почта'), 'lead@example.com');
+    fetch.mockResolvedValueOnce(jsonResponse({ error: 'слишком часто' }, 429));
+    await user.click(screen.getByRole('button', { name: 'Прислать ссылку' }));
+
+    await waitFor(() => expect(screen.getByText(/слишком часто/i)).toBeInTheDocument());
+    expect(screen.getByText(/спамом/)).toBeInTheDocument();
+  });
+
   it('не отправляет запрос, если браузер забраковал адрес', async () => {
     const user = userEvent.setup();
     render(<LoginScreen />);
