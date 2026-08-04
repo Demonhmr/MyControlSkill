@@ -75,7 +75,7 @@ func (s *Store) SubmitByToken(ctx context.Context, token string, sub domain.Subm
 
 	sub.Role = domain.Role(role)
 	if err := sub.Validate(); err != nil {
-		return Response{}, err
+		return Response{}, fmt.Errorf("%w: %w", ErrInvalidSubmission, err)
 	}
 
 	// Условие used_at IS NULL — защита от двух одновременных отправок по
@@ -177,6 +177,19 @@ func (s *Store) CountResponses(ctx context.Context, assessmentID string) (Counts
 		}
 	}
 	return c, rows.Err()
+}
+
+// CountOpenAnswers считает сохранённые ответы на открытые вопросы раунда.
+func (s *Store) CountOpenAnswers(ctx context.Context, assessmentID string) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM open_answer o
+		   JOIN response r ON r.id = o.response_id
+		  WHERE r.assessment_id = ?`, assessmentID).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("подсчёт открытых ответов: %w", err)
+	}
+	return n, nil
 }
 
 // ResponsesForScoring отдаёт анкеты раунда для расчёта профиля.

@@ -7,7 +7,10 @@
 // чтобы засорить нормативную базу.
 package domain
 
-import "fmt"
+import (
+	"fmt"
+	"unicode/utf8"
+)
 
 // Границы шкалы оценки. Отдельное значение «не могу оценить» шкалой не
 // является и приходит как отсутствие оценки (nil), см. Answer.Value.
@@ -22,6 +25,13 @@ const ItemsPerCode = 2
 
 // OpenQuestionCount — число открытых вопросов в конце анкеты.
 const OpenQuestionCount = 2
+
+// MaxOpenAnswerLength — предел длины свободного ответа в символах.
+//
+// Ограничение техническое, а не смысловое: развёрнутый ответ на пару
+// абзацев укладывается с запасом, а без предела в базу можно залить
+// сколько угодно текста.
+const MaxOpenAnswerLength = 5000
 
 // MinRespondents — сколько внешних анкет нужно, чтобы считать профиль.
 // Ниже этого порога отчёт строился бы на шуме, поэтому сервер его не отдаёт.
@@ -146,6 +156,12 @@ type OpenAnswer struct {
 func (o OpenAnswer) Validate() error {
 	if o.QuestionIndex < 0 || o.QuestionIndex >= OpenQuestionCount {
 		return fmt.Errorf("открытый вопрос %d вне диапазона 0..%d", o.QuestionIndex, OpenQuestionCount-1)
+	}
+	// Длина в рунах, а не в байтах: ответы на русском, и байтовый предел
+	// урезал бы их вдвое против ожидаемого.
+	if n := utf8.RuneCountInString(o.Text); n > MaxOpenAnswerLength {
+		return fmt.Errorf("ответ на открытый вопрос %d длиной %d символов, предел %d",
+			o.QuestionIndex, n, MaxOpenAnswerLength)
 	}
 	return nil
 }

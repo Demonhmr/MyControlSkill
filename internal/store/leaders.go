@@ -52,6 +52,17 @@ func (s *Store) LeaderByEmail(ctx context.Context, email string) (Leader, error)
 		`SELECT id, email, name, created_at FROM leader WHERE email = ?`, normalizeEmail(email)))
 }
 
+// LeaderByAssessment возвращает владельца раунда.
+//
+// Нужен экрану респондента: тот заполняет анкету по ссылке и должен видеть,
+// кого именно оценивает.
+func (s *Store) LeaderByAssessment(ctx context.Context, assessmentID string) (Leader, error) {
+	return s.scanLeader(s.db.QueryRowContext(ctx,
+		`SELECT l.id, l.email, l.name, l.created_at
+		   FROM assessment a JOIN leader l ON l.id = a.leader_id
+		  WHERE a.id = ?`, assessmentID))
+}
+
 // LeaderByID ищет аккаунт по идентификатору.
 func (s *Store) LeaderByID(ctx context.Context, id string) (Leader, error) {
 	return s.scanLeader(s.db.QueryRowContext(ctx,

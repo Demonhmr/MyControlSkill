@@ -41,6 +41,11 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/assessments/{id}/close", s.requireLeader(s.handleCloseAssessment))
 	mux.HandleFunc("POST /api/assessments/{id}/invites", s.requireLeader(s.handleCreateInvite))
 	mux.HandleFunc("GET /api/assessments/{id}/profile", s.requireLeader(s.handleProfile))
+
+	// Анкета респондента — без авторизации: аккаунта у него нет, вся
+	// аутентификация это знание токена из ссылки.
+	mux.HandleFunc("GET /api/survey/{token}", s.handleGetSurvey)
+	mux.HandleFunc("POST /api/survey/{token}", s.handleSubmitSurvey)
 }
 
 // writeJSON отдаёт значение как JSON.
