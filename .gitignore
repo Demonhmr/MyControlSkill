@@ -3,6 +3,15 @@ dist
 .DS_Store
 *.log
 
-# Собираемые артефакты (см. launcher/build.sh)
+# Собираемые артефакты (см. scripts/build.sh)
 build/
-launcher/dist/
+
+# Данные локального сервера
+data/
+
+# Каталог вшиваемой статики: содержимое собирается, но сам каталог должен
+# существовать всегда — иначе go:embed в cmd/launcher не компилируется и
+# ломается `go build ./...` на чистом клоне.
+!cmd/launcher/dist/
+cmd/launcher/dist/*
+!cmd/launcher/dist/.gitkeep

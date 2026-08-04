@@ -8,6 +8,9 @@
 // Через file:// прототип открыть нельзя: сборка Vite использует ES-модули,
 // а браузеры блокируют их загрузку с локальной файловой системы (CORS).
 // Отсюда и локальный сервер вместо простого открытия index.html.
+//
+// Лаунчер работает без бэкенда: в этом режиме приложение хранит данные
+// в localStorage браузера. Серверный режим — см. cmd/server.
 package main
 
 import (
@@ -21,62 +24,17 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path"
 	"runtime"
-	"strings"
 	"syscall"
 	"time"
+
+	"mycontrolskill/internal/web"
 )
 
 //go:embed all:dist
 var embedded embed.FS
 
 const appName = "Компас руководителя"
-
-// spaHandler отдаёт статику, а на неизвестные пути возвращает index.html,
-// чтобы клиентская навигация не упиралась в 404.
-type spaHandler struct {
-	files fs.FS
-}
-
-func (h spaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
-	if name == "" || name == "." {
-		name = "index.html"
-	}
-	f, err := h.files.Open(name)
-	if err != nil {
-		// Неизвестный путь — отдаём оболочку приложения.
-		name = "index.html"
-		f, err = h.files.Open(name)
-		if err != nil {
-			http.Error(w, "index.html не найден в сборке", http.StatusInternalServerError)
-			return
-		}
-	}
-	defer f.Close()
-
-	info, err := f.Stat()
-	if err != nil || info.IsDir() {
-		http.Error(w, "не файл", http.StatusNotFound)
-		return
-	}
-	seeker, ok := f.(interface {
-		Read([]byte) (int, error)
-		Seek(int64, int) (int64, error)
-	})
-	if !ok {
-		http.Error(w, "файл не поддерживает чтение со смещением", http.StatusInternalServerError)
-		return
-	}
-	// Ассеты Vite содержат хэш в имени, поэтому кэшируются безопасно.
-	if strings.HasPrefix(name, "assets/") {
-		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	} else {
-		w.Header().Set("Cache-Control", "no-cache")
-	}
-	http.ServeContent(w, r, name, info.ModTime(), seeker)
-}
 
 // openBrowser открывает URL в браузере по умолчанию.
 func openBrowser(url string) error {
@@ -107,7 +65,7 @@ func main() {
 	url := fmt.Sprintf("http://%s/", listener.Addr().String())
 
 	server := &http.Server{
-		Handler:           spaHandler{files: files},
+		Handler:           web.SPA(files),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
