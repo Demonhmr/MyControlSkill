@@ -34,6 +34,13 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/auth/callback", s.handleLoginCallback)
 	mux.HandleFunc("POST /api/auth/logout", s.handleLogout)
 	mux.HandleFunc("GET /api/me", s.requireLeader(s.handleMe))
+
+	mux.HandleFunc("POST /api/assessments", s.requireLeader(s.handleCreateAssessment))
+	mux.HandleFunc("GET /api/assessments", s.requireLeader(s.handleListAssessments))
+	mux.HandleFunc("GET /api/assessments/{id}", s.requireLeader(s.handleGetAssessment))
+	mux.HandleFunc("POST /api/assessments/{id}/close", s.requireLeader(s.handleCloseAssessment))
+	mux.HandleFunc("POST /api/assessments/{id}/invites", s.requireLeader(s.handleCreateInvite))
+	mux.HandleFunc("GET /api/assessments/{id}/profile", s.requireLeader(s.handleProfile))
 }
 
 // writeJSON отдаёт значение как JSON.
