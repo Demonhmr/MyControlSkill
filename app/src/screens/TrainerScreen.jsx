@@ -4,7 +4,7 @@ import { nameOf, scenarioFor } from '../data';
 import { Card, Button } from '../components/ui.jsx';
 
 export default function TrainerScreen() {
-  const { state, dispatch } = useStore();
+  const { state, addReflection } = useStore();
   const [draft, setDraft] = useState('');
   const code = state.trainerScenarioCode || state.growthPoint;
 
@@ -25,10 +25,12 @@ export default function TrainerScreen() {
   const title = code === 'DESTRUCTOR_VIS' ? 'Критическая зона: нет ясного видения' : nameOf(code);
   const entries = state.reflections.filter((r) => r.code === code);
 
-  const save = () => {
+  // Запись уходит через стор, а не прямым dispatch: в сетевом режиме она
+  // сначала сохраняется на сервере и только потом появляется на экране.
+  const save = async () => {
     const val = draft.trim();
     if (!val) return;
-    dispatch({ type: 'ADD_REFLECTION', date: new Date().toLocaleDateString('ru-RU'), code, text: val });
+    await addReflection(code, val);
     setDraft('');
   };
 

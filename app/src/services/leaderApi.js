@@ -68,6 +68,19 @@ export function createInvite(id, { role, email = '' }) {
   });
 }
 
+/** Рабочее состояние экранов и записи из тренажёра — одним запросом. */
+export function fetchLeaderState() {
+  return request('/api/state');
+}
+
+export function saveLeaderState(state) {
+  return request('/api/state', { method: 'PUT', body: { state } });
+}
+
+export function addReflection(code, text) {
+  return request('/api/reflections', { method: 'POST', body: { code, text } });
+}
+
 /**
  * Профиль раунда.
  *

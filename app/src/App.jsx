@@ -2,7 +2,7 @@ import { StoreProvider, useStore } from './state/store.jsx';
 import { SessionProvider, useSession } from './state/session.jsx';
 import { ProfileProvider, useProfileSource } from './state/profile.jsx';
 import TopNav from './components/TopNav.jsx';
-import { Card } from './components/ui.jsx';
+import { Banner, Card } from './components/ui.jsx';
 import Survey360Screen from './screens/Survey360Screen.jsx';
 import DestructorsScreen from './screens/DestructorsScreen.jsx';
 import StrengthMapScreen from './screens/StrengthMapScreen.jsx';
@@ -33,7 +33,7 @@ const SCREENS = {
 const PROFILE_SCREENS = new Set(['destructors', 'strength', 'growth', 'plan', 'pulse']);
 
 function Shell() {
-  const { state } = useStore();
+  const { state, persistError } = useStore();
   const { mode } = useSession();
   const { profile } = useProfileSource();
 
@@ -48,6 +48,15 @@ function Shell() {
   return (
     <div className="app viz-root">
       <TopNav />
+      {/* Молча терять план развития нельзя: без этого сообщения руководитель
+          решит, что всё сохранилось, и обнаружит пропажу на другом устройстве. */}
+      {persistError && (
+        <Banner title="Изменения не сохраняются">
+          {persistError.status === 401
+            ? 'Сессия истекла — войдите заново, иначе отметки останутся только в этом окне.'
+            : 'Связь с сервером потеряна. Отметки останутся только в этом окне, пока она не восстановится.'}
+        </Banner>
+      )}
       <Screen />
     </div>
   );
