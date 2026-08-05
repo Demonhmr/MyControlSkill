@@ -14,6 +14,9 @@ compass.example.com {
 	reverse_proxy 127.0.0.1:8080
 
 	# Анкеты и профиль — персональные данные; в поисковую выдачу им не надо.
+	# Логи идут в journald: `journalctl -u caddy`. Файловый вывод убран
+	# намеренно — он добавлял отдельный каталог с правами и, как выяснилось
+	# на боевом сервере, отдельную причину не подняться.
 	header {
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
@@ -22,7 +25,4 @@ compass.example.com {
 		# полным Referer она утекала бы на любой внешний ресурс со страницы.
 	}
 
-	log {
-		output file /var/log/caddy/mycontrolskill.log
-	}
 }
