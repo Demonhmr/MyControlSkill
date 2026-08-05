@@ -1,0 +1,21 @@
+# Ежедневная копия базы.
+#
+#   sudo cp deploy/mycontrolskill-backup.{service,timer} /etc/systemd/system/
+#   sudo install -D -m 0755 deploy/backup.sh /opt/mycontrolskill/bin/backup.sh
+#   sudo install -d -o mycontrolskill -g mycontrolskill /var/backups/mycontrolskill
+#   sudo systemctl enable --now mycontrolskill-backup.timer
+
+[Unit]
+Description=Ежедневная копия базы «Компаса руководителя»
+
+[Timer]
+OnCalendar=daily
+# Разброс, чтобы копия не приходилась ровно на полночь вместе со всем
+# остальным на машине.
+RandomizedDelaySec=30m
+# Если машина была выключена в назначенное время, копия сделается при
+# следующем запуске, а не пропустится.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

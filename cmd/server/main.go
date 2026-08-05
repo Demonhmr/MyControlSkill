@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"log/slog"
 	"net/http"
 	"os"
@@ -26,12 +27,45 @@ import (
 )
 
 func main() {
+	// Копия делается тем же бинарником: утилиты sqlite3 на сервере может не
+	// быть, а копировать файл базы при включённом WAL небезопасно.
+	backupPath := flag.String("backup", "", "сделать копию базы в указанный файл и выйти")
+	flag.Parse()
+
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	if err := run(log); err != nil {
-		log.Error("сервер остановлен с ошибкой", "err", err)
+	var err error
+	if *backupPath != "" {
+		err = backup(log, *backupPath)
+	} else {
+		err = run(log)
+	}
+	if err != nil {
+		log.Error("завершение с ошибкой", "err", err)
 		os.Exit(1)
 	}
+}
+
+// backup делает копию базы и выходит. Служба при этом может работать:
+// SQLite в режиме WAL допускает чтение из другого процесса.
+func backup(log *slog.Logger, destPath string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DBPath)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+
+	if err := st.Backup(ctx, destPath); err != nil {
+		return err
+	}
+	log.Info("копия базы создана", "from", cfg.DBPath, "to", destPath)
+	return nil
 }
 
 func run(log *slog.Logger) error {

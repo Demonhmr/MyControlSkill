@@ -1,0 +1,65 @@
+# Юнит службы «Компас руководителя».
+#
+#   sudo cp deploy/mycontrolskill.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now mycontrolskill
+#
+# Раскладка предполагается такая:
+#   /opt/mycontrolskill/bin/mycontrolskill-server  — бинарник
+#   /opt/mycontrolskill/web/                       — сборка фронтенда
+#   /var/lib/mycontrolskill/                       — база (создаёт systemd)
+#   /etc/mycontrolskill/env                        — настройки и секреты
+
+[Unit]
+Description=Компас руководителя — сервер 360°
+Documentation=https://github.com/Demonhmr/MyControlSkill
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mycontrolskill
+Group=mycontrolskill
+WorkingDirectory=/opt/mycontrolskill
+
+# Секреты (пароль SMTP) лежат здесь, а не в юните: юнит читается всеми, а
+# файлу окружения ставится режим 0600.
+EnvironmentFile=/etc/mycontrolskill/env
+ExecStart=/opt/mycontrolskill/bin/mycontrolskill-server
+
+Restart=on-failure
+RestartSec=5s
+
+# Каталог для базы создаётся и переходит во владение службе автоматически.
+StateDirectory=mycontrolskill
+StateDirectoryMode=0750
+
+# Ограничение прав. Служба ходит только в сеть и в свой каталог с базой:
+# ни повышать права, ни писать куда-либо ещё ей не нужно.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+# AF_UNIX нужен для разрешения имён через nss, остальное — обычная сеть.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# Сервис слушает только петлю, наружу его выставляет обратный прокси.
+# Порты ниже 1024 не нужны, поэтому и права на них не выдаются.
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

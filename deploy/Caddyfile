@@ -1,0 +1,28 @@
+# Обратный прокси на Caddy — рекомендуемый вариант: сертификат он получает
+# и продлевает сам, отдельной возни с certbot не нужно.
+#
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Замените домен на свой; он должен совпадать с MCS_BASE_URL.
+
+compass.example.com {
+	encode gzip zstd
+
+	# Caddy сам дописывает X-Forwarded-For, добавляя адрес клиента в конец
+	# списка. Сервис берёт именно последнее значение — см. MCS_TRUST_PROXY.
+	reverse_proxy 127.0.0.1:8080
+
+	# Анкеты и профиль — персональные данные; в поисковую выдачу им не надо.
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy same-origin
+		# Ссылка на анкету попадает в адресную строку респондента, и с
+		# полным Referer она утекала бы на любой внешний ресурс со страницы.
+	}
+
+	log {
+		output file /var/log/caddy/mycontrolskill.log
+	}
+}
