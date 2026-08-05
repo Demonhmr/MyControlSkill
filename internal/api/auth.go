@@ -44,10 +44,28 @@ func (s *Server) handleLoginRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	email := strings.ToLower(addr.Address)
+
+	// Отказ по списку допущенных — до всего остального: письмо тому, кто
+	// всё равно не сможет войти, бессмысленно, а человеку лучше узнать
+	// причину сразу, чем после перехода по ссылке.
+	//
+	// База спрашивается только про адреса вне списка: у кого аккаунт уже
+	// есть, тот входит всегда — иначе подрядчик, которого эйчар добавил с
+	// почтой на чужом домене, не смог бы даже запросить ссылку.
+	//
+	// Цена такой проверки — по разнице между 202 и 403 для адреса вне
+	// списка можно узнать, что у него здесь есть аккаунт. Обмен осознанный:
+	// сломанный вход для добавленных эйчаром людей хуже, чем эта утечка.
+	if !s.allowRegistration(email) && !s.hasAccount(r, email) {
+		s.Log.Info("запрос ссылки отклонён списком допущенных", "email", email)
+		s.writeError(w, http.StatusForbidden, "этот адрес не допущен к сервису")
+		return
+	}
+
 	// Два разных ограничения. По адресу — чтобы нельзя было завалить
 	// письмами один ящик; по источнику запроса — чтобы нельзя было
 	// разослать письма по многим ящикам, меняя адрес в каждом запросе.
-	email := strings.ToLower(addr.Address)
 	if ok, wait := s.limiters.loginByEmail.Allow(email); !ok {
 		s.Log.Info("запрос ссылки ограничен по адресу", "email", email)
 		s.tooManyRequests(w, wait)
@@ -94,8 +112,11 @@ func (s *Server) handleLoginCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	leader, err := s.Store.ConsumeLoginToken(r.Context(), token)
+	leader, err := s.Store.ConsumeLoginToken(r.Context(), token, s.allowRegistration)
 	switch {
+	case errors.Is(err, store.ErrRegistrationClosed):
+		s.redirectWithError(w, r, "not-allowed")
+		return
 	case errors.Is(err, store.ErrTokenExpired):
 		s.redirectWithError(w, r, "expired")
 		return
@@ -190,6 +211,23 @@ func (s *Server) requireLeader(next http.HandlerFunc) http.HandlerFunc {
 
 		next(w, r.WithContext(context.WithValue(r.Context(), leaderKey{}, leader)))
 	}
+}
+
+// hasAccount сообщает, заведён ли уже аккаунт по этому адресу.
+func (s *Server) hasAccount(r *http.Request, email string) bool {
+	_, err := s.Store.LeaderByEmail(r.Context(), email)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		s.Log.Error("не удалось проверить аккаунт", "err", err)
+	}
+	return err == nil
+}
+
+// allowRegistration применяет список допущенных. Без списка разрешено всем.
+func (s *Server) allowRegistration(email string) bool {
+	if s.AllowRegistration == nil {
+		return true
+	}
+	return s.AllowRegistration(email)
 }
 
 // linkFor собирает абсолютную ссылку для письма.

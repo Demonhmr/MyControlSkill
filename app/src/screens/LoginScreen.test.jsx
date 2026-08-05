@@ -69,6 +69,24 @@ describe('LoginScreen', () => {
     expect(screen.getByText(/спамом/)).toBeInTheDocument();
   });
 
+  it('объясняет отказ по списку допущенных', async () => {
+    const user = userEvent.setup();
+    render(<LoginScreen />);
+
+    await user.type(screen.getByLabelText('Рабочая почта'), 'stranger@example.com');
+    fetch.mockResolvedValueOnce(jsonResponse({ error: 'не допущен' }, 403));
+    await user.click(screen.getByRole('button', { name: 'Прислать ссылку' }));
+
+    await waitFor(() => expect(screen.getByText(/не допущен к сервису/)).toBeInTheDocument());
+  });
+
+  it('объясняет отказ по списку при переходе по ссылке', () => {
+    window.history.replaceState({}, '', '/?login_error=not-allowed');
+    render(<LoginScreen />);
+
+    expect(screen.getByText(/не допущен к сервису/)).toBeInTheDocument();
+  });
+
   it('не отправляет запрос, если браузер забраковал адрес', async () => {
     const user = userEvent.setup();
     render(<LoginScreen />);

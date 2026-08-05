@@ -98,12 +98,20 @@ func run(log *slog.Logger) error {
 	}
 
 	apiServer := &api.Server{
-		Store:         st,
-		Mailer:        mailer,
-		Log:           log,
-		BaseURL:       cfg.BaseURL,
-		SecureCookies: cfg.SecureCookies(),
-		TrustProxy:    cfg.TrustProxy,
+		Store:             st,
+		Mailer:            mailer,
+		Log:               log,
+		BaseURL:           cfg.BaseURL,
+		SecureCookies:     cfg.SecureCookies(),
+		TrustProxy:        cfg.TrustProxy,
+		AllowRegistration: cfg.Registration.Allows,
+	}
+	if !cfg.Registration.Restricted() {
+		log.Warn("MCS_ALLOWED_DOMAINS и MCS_ALLOWED_EMAILS не заданы: завести аккаунт может любой, " +
+			"кто знает адрес сервиса")
+	} else {
+		log.Info("заведение аккаунтов ограничено",
+			"доменов", len(cfg.Registration.Domains), "адресов", len(cfg.Registration.Emails))
 	}
 	if cfg.BaseURL == "" {
 		log.Warn("MCS_BASE_URL не задан: ссылки в письмах собираются из заголовков запроса, " +

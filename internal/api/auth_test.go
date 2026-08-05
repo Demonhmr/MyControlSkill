@@ -45,6 +45,14 @@ func (m *recordingMailer) lastLink(t *testing.T) string {
 
 func newTestServer(t *testing.T) (*httptest.Server, *recordingMailer, *store.Store) {
 	t.Helper()
+	ts, mailer, st, _ := newConfiguredServer(t)
+	return ts, mailer, st
+}
+
+// newConfiguredServer дополнительно отдаёт сам обработчик: часть проверок
+// меняет его настройки на ходу, например список допущенных.
+func newConfiguredServer(t *testing.T) (*httptest.Server, *recordingMailer, *store.Store, *Server) {
+	t.Helper()
 	ctx := context.Background()
 
 	st, err := store.Open(ctx, filepath.Join(t.TempDir(), "test.db"))
@@ -65,7 +73,7 @@ func newTestServer(t *testing.T) (*httptest.Server, *recordingMailer, *store.Sto
 
 	ts := httptest.NewServer(mux)
 	t.Cleanup(ts.Close)
-	return ts, mailer, st
+	return ts, mailer, st, srv
 }
 
 // client не ходит по редиректам: тестам нужно видеть сам ответ с cookie.

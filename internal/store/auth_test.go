@@ -18,7 +18,7 @@ func TestВходПоСсылкеСоздаётАккаунт(t *testing.T) {
 		t.Fatalf("CreateLoginToken: %v", err)
 	}
 
-	leader, err := st.ConsumeLoginToken(ctx, token)
+	leader, err := st.ConsumeLoginToken(ctx, token, nil)
 	if err != nil {
 		t.Fatalf("ConsumeLoginToken: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestВходПоСсылкеСоздаётАккаунт(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateLoginToken: %v", err)
 	}
-	again, err := st.ConsumeLoginToken(ctx, token2)
+	again, err := st.ConsumeLoginToken(ctx, token2, nil)
 	if err != nil {
 		t.Fatalf("повторный ConsumeLoginToken: %v", err)
 	}
@@ -47,10 +47,10 @@ func TestСсылкаДляВходаОдноразовая(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateLoginToken: %v", err)
 	}
-	if _, err := st.ConsumeLoginToken(ctx, token); err != nil {
+	if _, err := st.ConsumeLoginToken(ctx, token, nil); err != nil {
 		t.Fatalf("первый вход: %v", err)
 	}
-	if _, err := st.ConsumeLoginToken(ctx, token); !errors.Is(err, ErrTokenUsed) {
+	if _, err := st.ConsumeLoginToken(ctx, token, nil); !errors.Is(err, ErrTokenUsed) {
 		t.Errorf("повторный вход: ожидался ErrTokenUsed, получено %v", err)
 	}
 }
@@ -64,7 +64,7 @@ func TestПротухшаяСсылкаНеПускает(t *testing.T) {
 	if err != nil {
 		t.Fatalf("createLoginToken: %v", err)
 	}
-	if _, err := st.ConsumeLoginToken(ctx, token); !errors.Is(err, ErrTokenExpired) {
+	if _, err := st.ConsumeLoginToken(ctx, token, nil); !errors.Is(err, ErrTokenExpired) {
 		t.Errorf("ожидался ErrTokenExpired, получено %v", err)
 	}
 
@@ -77,7 +77,7 @@ func TestПротухшаяСсылкаНеПускает(t *testing.T) {
 func TestНеизвестнаяСсылкаОтвергается(t *testing.T) {
 	st, ctx := newTestStore(t)
 
-	if _, err := st.ConsumeLoginToken(ctx, "выдуманный-токен"); !errors.Is(err, ErrNotFound) {
+	if _, err := st.ConsumeLoginToken(ctx, "выдуманный-токен", nil); !errors.Is(err, ErrNotFound) {
 		t.Errorf("ожидался ErrNotFound, получено %v", err)
 	}
 }
@@ -240,7 +240,71 @@ func TestPurgeExpiredAuthЧиститТолькоПротухшее(t *testing.T
 	if _, err := st.LeaderBySession(ctx, liveSession); err != nil {
 		t.Errorf("живая сессия удалена: %v", err)
 	}
-	if _, err := st.ConsumeLoginToken(ctx, liveToken); err != nil {
+	if _, err := st.ConsumeLoginToken(ctx, liveToken, nil); err != nil {
 		t.Errorf("живая ссылка удалена: %v", err)
+	}
+}
+
+func TestСписокДопущенныхГаситЗаведениеАккаунта(t *testing.T) {
+	st, ctx := newTestStore(t)
+
+	token, err := st.CreateLoginToken(ctx, "stranger@example.com")
+	if err != nil {
+		t.Fatalf("CreateLoginToken: %v", err)
+	}
+
+	deny := func(string) bool { return false }
+	if _, err := st.ConsumeLoginToken(ctx, token, deny); !errors.Is(err, ErrRegistrationClosed) {
+		t.Fatalf("ожидался ErrRegistrationClosed, получено %v", err)
+	}
+	if _, err := st.LeaderByEmail(ctx, "stranger@example.com"); !errors.Is(err, ErrNotFound) {
+		t.Error("аккаунт всё-таки заведён")
+	}
+}
+
+func TestСуществующийАккаунтВходитМимоСписка(t *testing.T) {
+	st, ctx := newTestStore(t)
+
+	// Аккаунт мог завести эйчар, добавив человека в организацию, или он
+	// существовал до появления списка. Смена списка не должна выбрасывать
+	// таких людей посреди пилота.
+	existing, err := st.EnsureLeader(ctx, "lead@example.com", "")
+	if err != nil {
+		t.Fatalf("EnsureLeader: %v", err)
+	}
+
+	token, err := st.CreateLoginToken(ctx, "lead@example.com")
+	if err != nil {
+		t.Fatalf("CreateLoginToken: %v", err)
+	}
+
+	deny := func(string) bool { return false }
+	got, err := st.ConsumeLoginToken(ctx, token, deny)
+	if err != nil {
+		t.Fatalf("вход существующего аккаунта отклонён: %v", err)
+	}
+	if got.ID != existing.ID {
+		t.Errorf("вошли не в тот аккаунт: %q", got.ID)
+	}
+}
+
+func TestОтказПоСпискуНеГаситСсылку(t *testing.T) {
+	st, ctx := newTestStore(t)
+
+	token, err := st.CreateLoginToken(ctx, "stranger@example.com")
+	if err != nil {
+		t.Fatalf("CreateLoginToken: %v", err)
+	}
+
+	deny := func(string) bool { return false }
+	if _, err := st.ConsumeLoginToken(ctx, token, deny); !errors.Is(err, ErrRegistrationClosed) {
+		t.Fatalf("ожидался ErrRegistrationClosed, получено %v", err)
+	}
+
+	// Транзакция откатилась: если адрес добавят в список, та же ссылка
+	// должна сработать, а не потребовать новую.
+	allow := func(string) bool { return true }
+	if _, err := st.ConsumeLoginToken(ctx, token, allow); err != nil {
+		t.Errorf("ссылка сгорела на отказе по списку: %v", err)
 	}
 }

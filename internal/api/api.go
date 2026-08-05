@@ -34,6 +34,10 @@ type Server struct {
 	// Включать только когда перед сервисом действительно стоит прокси:
 	// иначе заголовок подделывается и ограничение частоты обходится.
 	TrustProxy bool
+	// AllowRegistration решает, можно ли завести аккаунт по этому адресу.
+	// nil означает, что можно любому: так сервис вёл себя до появления
+	// списка допущенных.
+	AllowRegistration func(email string) bool
 
 	limiters struct {
 		once sync.Once

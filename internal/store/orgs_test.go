@@ -80,7 +80,7 @@ func TestУчастникДобавляетсяПоПочтеИАккаунтЗ�
 	if err != nil {
 		t.Fatalf("CreateLoginToken: %v", err)
 	}
-	logged, err := st.ConsumeLoginToken(ctx, token)
+	logged, err := st.ConsumeLoginToken(ctx, token, nil)
 	if err != nil {
 		t.Fatalf("ConsumeLoginToken: %v", err)
 	}

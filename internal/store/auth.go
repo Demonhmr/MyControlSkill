@@ -63,10 +63,11 @@ func (s *Store) createLoginToken(ctx context.Context, email string, ttl time.Dur
 // первом входе.
 //
 // Регистрации как отдельного шага нет: первый переход по ссылке и есть
-// создание аккаунта. Для пилота этого достаточно, но означает, что завести
-// аккаунт может любой, кто знает адрес сервиса, — ограничение по списку
-// приглашённых появится вместе с продажами.
-func (s *Store) ConsumeLoginToken(ctx context.Context, token string) (Leader, error) {
+// создание аккаунта. Кому это разрешено, решает allowCreate — политику
+// задаёт вызывающий, хранилище её не знает. Уже существующий аккаунт
+// пропускается независимо от неё: смена списка не должна выбрасывать людей
+// посреди пилота.
+func (s *Store) ConsumeLoginToken(ctx context.Context, token string, allowCreate func(email string) bool) (Leader, error) {
 	// Чтение с последующей записью — через общую очередь, см. Store.writeMu.
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
@@ -112,7 +113,7 @@ func (s *Store) ConsumeLoginToken(ctx context.Context, token string) (Leader, er
 		return Leader{}, ErrTokenUsed
 	}
 
-	leader, err := ensureLeaderTx(ctx, tx, email)
+	leader, err := ensureLeaderTx(ctx, tx, email, allowCreate)
 	if err != nil {
 		return Leader{}, err
 	}
@@ -124,7 +125,7 @@ func (s *Store) ConsumeLoginToken(ctx context.Context, token string) (Leader, er
 
 // ensureLeaderTx — та же логика, что в EnsureLeader, но внутри транзакции
 // входа: аккаунт и погашение ссылки должны примениться вместе.
-func ensureLeaderTx(ctx context.Context, tx *sql.Tx, email string) (Leader, error) {
+func ensureLeaderTx(ctx context.Context, tx *sql.Tx, email string, allowCreate func(email string) bool) (Leader, error) {
 	var l Leader
 	var created string
 	err := tx.QueryRowContext(ctx,
@@ -132,6 +133,9 @@ func ensureLeaderTx(ctx context.Context, tx *sql.Tx, email string) (Leader, erro
 		Scan(&l.ID, &l.Email, &l.Name, &created)
 
 	if errors.Is(err, sql.ErrNoRows) {
+		if allowCreate != nil && !allowCreate(email) {
+			return Leader{}, ErrRegistrationClosed
+		}
 		id, err := newID()
 		if err != nil {
 			return Leader{}, err

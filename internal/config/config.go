@@ -31,6 +31,10 @@ type Config struct {
 	// пуст, письма не отправляются, а ссылки пишутся в лог.
 	SMTP SMTP
 
+	// Registration — кому разрешено заводить аккаунт. Пустой список
+	// означает, что завести его может любой, кто знает адрес сервиса.
+	Registration Registration
+
 	// TrustProxy разрешает брать адрес клиента из X-Forwarded-For.
 	//
 	// Включать только когда перед сервисом действительно стоит обратный
@@ -87,6 +91,10 @@ func Load() (Config, error) {
 		BaseURL:         strings.TrimSuffix(env("MCS_BASE_URL", ""), "/"),
 		ShutdownTimeout: defaultShutdownTimeout,
 		TrustProxy:      envBool("MCS_TRUST_PROXY"),
+		Registration: Registration{
+			Emails:  parseList(env("MCS_ALLOWED_EMAILS", ""), false),
+			Domains: parseList(env("MCS_ALLOWED_DOMAINS", ""), true),
+		},
 		SMTP: SMTP{
 			Host:     env("MCS_SMTP_HOST", ""),
 			Port:     port,
