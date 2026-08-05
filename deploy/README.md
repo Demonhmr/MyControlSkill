@@ -28,21 +28,30 @@ npm --prefix app run build  # → app/dist
 ## Установка
 
 ```bash
-# Пользователь без входа в систему и без домашнего каталога.
-sudo useradd --system --no-create-home --shell /usr/sbin/nologin mycontrolskill
-
-sudo install -D -m 0755 build/mycontrolskill-server /opt/mycontrolskill/bin/mycontrolskill-server
-sudo install -D -m 0755 deploy/backup.sh            /opt/mycontrolskill/bin/backup.sh
-sudo mkdir -p /opt/mycontrolskill/web
-sudo cp -r app/dist/. /opt/mycontrolskill/web/
-
-sudo install -D -m 0600 deploy/env.example /etc/mycontrolskill/env
-sudo nano /etc/mycontrolskill/env      # домен, почта, пароль
-
-sudo cp deploy/mycontrolskill.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now mycontrolskill
+MCS_DRY_RUN=1 ./deploy/install.sh   # посмотреть план, ничего не меняя
+sudo ./deploy/install.sh            # установить
 ```
+
+Скрипт заводит служебного пользователя, раскладывает бинарник, скрипты и
+сборку фронтенда, ставит юниты и таймеры. При первой установке он копирует
+`deploy/env.example` в `/etc/mycontrolskill/env` и **службу не запускает**: в
+примере чужой домен и пароль «замените», и работающая с ними служба даёт
+непонятную поломку вместо внятной остановки.
+
+Дальше по подсказке скрипта:
+
+```bash
+sudo nano /etc/mycontrolskill/env    # домен, почта, пароль
+sudo systemctl enable --now mycontrolskill
+sudo systemctl enable --now mycontrolskill-backup.timer
+sudo systemctl enable --now mycontrolskill-purge.timer
+```
+
+Повторный запуск скрипта — это обновление: он перекладывает свежие
+артефакты и перезапускает службу. **Файл с настройками при этом не
+трогается** — в нём пароль от почты.
+
+Если разворачиваете руками, все шаги видны в самом скрипте.
 
 Проверка:
 
@@ -86,10 +95,9 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## Копии базы
 
+Юнит и таймер ставит скрипт установки; включаются они так:
+
 ```bash
-sudo cp deploy/mycontrolskill-backup.{service,timer} /etc/systemd/system/
-sudo install -d -o mycontrolskill -g mycontrolskill /var/backups/mycontrolskill
-sudo systemctl daemon-reload
 sudo systemctl enable --now mycontrolskill-backup.timer
 
 systemctl list-timers mycontrolskill-backup   # когда сработает
@@ -126,8 +134,6 @@ sudo systemctl start mycontrolskill
 таймером:
 
 ```bash
-sudo cp deploy/mycontrolskill-purge.{service,timer} /etc/systemd/system/
-sudo systemctl daemon-reload
 sudo systemctl enable --now mycontrolskill-purge.timer
 ```
 
@@ -137,11 +143,8 @@ sudo systemctl enable --now mycontrolskill-purge.timer
 ## Обновление
 
 ```bash
-sudo systemctl stop mycontrolskill
-sudo install -m 0755 build/mycontrolskill-server /opt/mycontrolskill/bin/mycontrolskill-server
-sudo rm -rf /opt/mycontrolskill/web && sudo mkdir -p /opt/mycontrolskill/web
-sudo cp -r app/dist/. /opt/mycontrolskill/web/
-sudo systemctl start mycontrolskill
+./scripts/build.sh server && npm --prefix app run build
+sudo ./deploy/install.sh
 ```
 
 Миграции применяются при старте сами, повторный запуск безопасен. Копию

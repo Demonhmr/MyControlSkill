@@ -416,7 +416,13 @@ npm run build    # прод-сборка
 ## Развёртывание
 
 Сервис — один статический бинарник и файл SQLite рядом: ни отдельной СУБД,
-ни рантайма на сервере не нужно. Юниты systemd, конфигурации Caddy и nginx,
+ни рантайма на сервере не нужно.
+
+```bash
+./scripts/build.sh server && npm --prefix app run build
+MCS_DRY_RUN=1 ./deploy/install.sh   # посмотреть план
+sudo ./deploy/install.sh            # установить или обновить
+``` Юниты systemd, конфигурации Caddy и nginx,
 ежедневные копии базы и порядок восстановления — в [`deploy/`](deploy/).
 
 Копия базы делается самим бинарником (`mycontrolskill-server -backup ФАЙЛ`),
