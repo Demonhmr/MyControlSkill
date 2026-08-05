@@ -120,7 +120,10 @@ function CreateOrg({ onCreated }) {
 function Overview({ data, onChanged }) {
   const leaders = data.leaders ?? [];
   const ready = leaders.filter((l) => l.ready);
-  const waiting = leaders.filter((l) => !l.ready);
+  // Причин, по которым чисел нет, две, и путать их нельзя: одно дело ждать
+  // анкеты, другое — не иметь разрешения смотреть.
+  const waiting = leaders.filter((l) => !l.ready && l.consentGranted);
+  const withheld = leaders.filter((l) => !l.consentGranted);
 
   return (
     <section>
@@ -180,6 +183,25 @@ function Overview({ data, onChanged }) {
             ))}
           </Card>
         </>
+      )}
+
+      {withheld.length > 0 && (
+        <Card>
+          <h3>Без разрешения на показ</h3>
+          <p className="footnote">
+            Эти руководители не разрешили показывать свой профиль HR-службе. Решение принимает
+            только сам человек, и отозвать его он может в любой момент.
+          </p>
+          {withheld.map((l) => (
+            <div className="leader-row" key={l.leaderId}>
+              <div className="lname">{l.name}</div>
+              <div className="chipset">
+                <Badge tone="neutral">нет разрешения</Badge>
+                {l.role === 'hr' && <span className="badgechip">HR</span>}
+              </div>
+            </div>
+          ))}
+        </Card>
       )}
 
       {waiting.length > 0 && (

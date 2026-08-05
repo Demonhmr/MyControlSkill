@@ -166,3 +166,87 @@ func TestLatestAssessmentБерётСвежий(t *testing.T) {
 		t.Errorf("для руководителя без раундов ожидался ErrNotFound, получено %v", err)
 	}
 }
+
+func TestСогласияПоУмолчаниюНет(t *testing.T) {
+	st, ctx := newTestStore(t)
+	hr, _ := st.EnsureLeader(ctx, "hr@example.com", "")
+	org, _ := st.CreateOrg(ctx, "Компас", hr.ID)
+
+	member, err := st.AddOrgMember(ctx, org.ID, "lead@example.com", OrgRoleLeader)
+	if err != nil {
+		t.Fatalf("AddOrgMember: %v", err)
+	}
+	// Молчание согласием не считается: добавление в организацию — решение
+	// эйчара, а не человека.
+	if member.ProfileConsentGranted() {
+		t.Error("новый участник считается давшим согласие")
+	}
+}
+
+func TestСогласиеВыдаётсяИОтзывается(t *testing.T) {
+	st, ctx := newTestStore(t)
+	hr, _ := st.EnsureLeader(ctx, "hr@example.com", "")
+	org, _ := st.CreateOrg(ctx, "Компас", hr.ID)
+	added, _ := st.AddOrgMember(ctx, org.ID, "lead@example.com", OrgRoleLeader)
+
+	granted, err := st.SetProfileConsent(ctx, added.LeaderID, true)
+	if err != nil {
+		t.Fatalf("SetProfileConsent: %v", err)
+	}
+	if !granted.ProfileConsentGranted() {
+		t.Fatal("согласие не выдано")
+	}
+
+	withdrawn, err := st.SetProfileConsent(ctx, added.LeaderID, false)
+	if err != nil {
+		t.Fatalf("отзыв согласия: %v", err)
+	}
+	if withdrawn.ProfileConsentGranted() {
+		t.Error("согласие не отозвано")
+	}
+
+	// Журнал хранит оба события: отозванное согласие иначе неотличимо от
+	// никогда не выданного.
+	history, err := st.ConsentHistory(ctx, added.LeaderID)
+	if err != nil {
+		t.Fatalf("ConsentHistory: %v", err)
+	}
+	if len(history) != 2 {
+		t.Fatalf("записей в журнале %d, ожидалось две", len(history))
+	}
+	if history[0].Granted || !history[1].Granted {
+		t.Errorf("порядок событий неверный: %+v", history)
+	}
+}
+
+func TestПовторнаяВыдачаНеСдвигаетМомент(t *testing.T) {
+	st, ctx := newTestStore(t)
+	hr, _ := st.EnsureLeader(ctx, "hr@example.com", "")
+	org, _ := st.CreateOrg(ctx, "Компас", hr.ID)
+	added, _ := st.AddOrgMember(ctx, org.ID, "lead@example.com", OrgRoleLeader)
+
+	first, _ := st.SetProfileConsent(ctx, added.LeaderID, true)
+	again, err := st.SetProfileConsent(ctx, added.LeaderID, true)
+	if err != nil {
+		t.Fatalf("повторная выдача: %v", err)
+	}
+
+	// Человек согласился тогда, когда согласился, а не когда последний раз
+	// нажал кнопку.
+	if !again.ProfileConsentAt.Equal(*first.ProfileConsentAt) {
+		t.Error("повторная выдача сдвинула момент согласия")
+	}
+	history, _ := st.ConsentHistory(ctx, added.LeaderID)
+	if len(history) != 1 {
+		t.Errorf("записей в журнале %d, ожидалась одна", len(history))
+	}
+}
+
+func TestСогласиеБезОрганизацииНевозможно(t *testing.T) {
+	st, ctx := newTestStore(t)
+	lone, _ := st.EnsureLeader(ctx, "lone@example.com", "")
+
+	if _, err := st.SetProfileConsent(ctx, lone.ID, true); !errors.Is(err, ErrNotFound) {
+		t.Errorf("ожидался ErrNotFound, получено %v", err)
+	}
+}

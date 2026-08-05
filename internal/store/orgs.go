@@ -35,7 +35,14 @@ type Member struct {
 	Name     string
 	Role     OrgRole
 	JoinedAt time.Time
+	// ProfileConsentAt — когда человек разрешил показывать свой профиль
+	// HR-службе. nil означает, что согласия нет: молчание согласием не
+	// считается, и по умолчанию эйчар чисел не видит.
+	ProfileConsentAt *time.Time
 }
+
+// ProfileConsentGranted сообщает, разрешён ли показ профиля HR-службе.
+func (m Member) ProfileConsentGranted() bool { return m.ProfileConsentAt != nil }
 
 // ErrAlreadyInOrg — руководитель уже состоит в организации.
 var ErrAlreadyInOrg = errors.New("руководитель уже состоит в организации")
@@ -175,11 +182,12 @@ func (s *Store) AddOrgMember(ctx context.Context, orgID, email string, role OrgR
 func (s *Store) memberByLeader(ctx context.Context, orgID, leaderID string) (Member, error) {
 	var m Member
 	var role, joined string
+	var consent sql.NullString
 	err := s.db.QueryRowContext(ctx,
-		`SELECT l.id, l.email, l.name, m.role, m.joined_at
+		`SELECT l.id, l.email, l.name, m.role, m.joined_at, m.profile_consent_at
 		   FROM org_member m JOIN leader l ON l.id = m.leader_id
 		  WHERE m.org_id = ? AND m.leader_id = ?`, orgID, leaderID).
-		Scan(&m.LeaderID, &m.Email, &m.Name, &role, &joined)
+		Scan(&m.LeaderID, &m.Email, &m.Name, &role, &joined, &consent)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
 		return Member{}, ErrNotFound
@@ -193,13 +201,21 @@ func (s *Store) memberByLeader(ctx context.Context, orgID, leaderID string) (Mem
 		return Member{}, err
 	}
 	m.JoinedAt = at
+
+	if consent.Valid {
+		ct, err := parseTime(consent.String)
+		if err != nil {
+			return Member{}, err
+		}
+		m.ProfileConsentAt = &ct
+	}
 	return m, nil
 }
 
 // OrgMembers перечисляет состав организации.
 func (s *Store) OrgMembers(ctx context.Context, orgID string) ([]Member, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT l.id, l.email, l.name, m.role, m.joined_at
+		`SELECT l.id, l.email, l.name, m.role, m.joined_at, m.profile_consent_at
 		   FROM org_member m JOIN leader l ON l.id = m.leader_id
 		  WHERE m.org_id = ? ORDER BY m.joined_at, m.rowid`, orgID)
 	if err != nil {
@@ -211,7 +227,8 @@ func (s *Store) OrgMembers(ctx context.Context, orgID string) ([]Member, error) 
 	for rows.Next() {
 		var m Member
 		var role, joined string
-		if err := rows.Scan(&m.LeaderID, &m.Email, &m.Name, &role, &joined); err != nil {
+		var consent sql.NullString
+		if err := rows.Scan(&m.LeaderID, &m.Email, &m.Name, &role, &joined, &consent); err != nil {
 			return nil, fmt.Errorf("чтение участника: %w", err)
 		}
 		m.Role = OrgRole(role)
@@ -221,9 +238,117 @@ func (s *Store) OrgMembers(ctx context.Context, orgID string) ([]Member, error) 
 			return nil, err
 		}
 		m.JoinedAt = at
+
+		if consent.Valid {
+			ct, err := parseTime(consent.String)
+			if err != nil {
+				return nil, err
+			}
+			m.ProfileConsentAt = &ct
+		}
 		out = append(out, m)
 	}
 	return out, rows.Err()
+}
+
+// SetProfileConsent выдаёт или отзывает согласие на показ профиля HR-службе.
+//
+// Текущее состояние пишется в org_member, а факт изменения — в журнал.
+// Одного текущего состояния мало: отозванное согласие неотличимо от
+// никогда не выданного, а спор о том, давал ли человек согласие и когда,
+// разрешается только записью.
+//
+// Повторная выдача момент согласия не сдвигает: человек согласился тогда,
+// когда согласился, а не когда последний раз нажал кнопку.
+func (s *Store) SetProfileConsent(ctx context.Context, leaderID string, granted bool) (Member, error) {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Member{}, fmt.Errorf("начало транзакции: %w", err)
+	}
+	defer tx.Rollback()
+
+	var orgID string
+	var current sql.NullString
+	err = tx.QueryRowContext(ctx,
+		`SELECT org_id, profile_consent_at FROM org_member WHERE leader_id = ?`, leaderID).
+		Scan(&orgID, &current)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return Member{}, ErrNotFound
+	case err != nil:
+		return Member{}, fmt.Errorf("чтение участия: %w", err)
+	}
+
+	changed := granted != current.Valid
+	if changed {
+		var value any
+		if granted {
+			value = now()
+		}
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE org_member SET profile_consent_at = ? WHERE leader_id = ?`, value, leaderID); err != nil {
+			return Member{}, fmt.Errorf("сохранение согласия: %w", err)
+		}
+
+		id, err := newID()
+		if err != nil {
+			return Member{}, err
+		}
+		grantedInt := 0
+		if granted {
+			grantedInt = 1
+		}
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO consent_event (id, leader_id, org_id, granted, created_at) VALUES (?, ?, ?, ?, ?)`,
+			id, leaderID, orgID, grantedInt, now()); err != nil {
+			return Member{}, fmt.Errorf("запись в журнал согласий: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return Member{}, fmt.Errorf("фиксация согласия: %w", err)
+	}
+	return s.memberByLeader(ctx, orgID, leaderID)
+}
+
+// ConsentEvent — запись журнала выдачи и отзыва согласия.
+type ConsentEvent struct {
+	Granted   bool
+	CreatedAt time.Time
+}
+
+// ConsentHistory отдаёт журнал по руководителю, свежие первыми.
+func (s *Store) ConsentHistory(ctx context.Context, leaderID string) ([]ConsentEvent, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT granted, created_at FROM consent_event
+		  WHERE leader_id = ? ORDER BY created_at DESC, rowid DESC`, leaderID)
+	if err != nil {
+		return nil, fmt.Errorf("чтение журнала согласий: %w", err)
+	}
+	defer rows.Close()
+
+	var out []ConsentEvent
+	for rows.Next() {
+		var granted int
+		var created string
+		if err := rows.Scan(&granted, &created); err != nil {
+			return nil, fmt.Errorf("чтение записи журнала: %w", err)
+		}
+		at, err := parseTime(created)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, ConsentEvent{Granted: granted == 1, CreatedAt: at})
+	}
+	return out, rows.Err()
+}
+
+// MemberOf возвращает участие руководителя в организации.
+func (s *Store) MemberOf(ctx context.Context, orgID, leaderID string) (Member, error) {
+	return s.memberByLeader(ctx, orgID, leaderID)
 }
 
 // LatestAssessment возвращает самый свежий раунд руководителя.

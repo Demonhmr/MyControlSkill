@@ -25,6 +25,8 @@ const INVITE = {
 function baseRoutes(extra = {}) {
   return {
     'GET /api/me': htmlResponse(),
+    // Карточка согласия спрашивает про организацию; в этих тестах её нет.
+    'GET /api/me/org': jsonResponse({ error: 'нет организации' }, 404),
     'GET /api/assessments': jsonResponse({ assessments: [ROUND] }),
     ...extra,
   };
@@ -123,6 +125,7 @@ describe('AssessmentsScreen', () => {
     const closed = { ...ROUND, closedAt: '2026-08-03T10:00:00.000Z' };
     renderScreen({
       'GET /api/me': htmlResponse(),
+      'GET /api/me/org': jsonResponse({ error: 'нет организации' }, 404),
       'GET /api/assessments': jsonResponse({ assessments: [closed] }),
       'GET /api/assessments/a1': jsonResponse({ assessment: closed, invites: [] }),
     });
@@ -139,6 +142,7 @@ describe('AssessmentsScreen', () => {
     const ready = { ...ROUND, counts: { external: 3, self: 1, required: 3, ready: true } };
     renderScreen({
       'GET /api/me': htmlResponse(),
+      'GET /api/me/org': jsonResponse({ error: 'нет организации' }, 404),
       'GET /api/assessments': jsonResponse({ assessments: [ready] }),
       'GET /api/assessments/a1': jsonResponse({ assessment: ready, invites: [] }),
     });

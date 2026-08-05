@@ -30,6 +30,17 @@ func addMember(t *testing.T, client *http.Client, ts *httptest.Server, email str
 	return body
 }
 
+// grantConsent входит под участником и разрешает показ профиля HR.
+// Без этого сводка чисел не отдаёт, сколько бы анкет ни собралось.
+func grantConsent(t *testing.T, ts *httptest.Server, mailer *recordingMailer, email string) {
+	t.Helper()
+	client := login(t, ts, mailer, email)
+	resp, body := doJSON(t, client, http.MethodPut, ts.URL+"/api/me/org/consent", `{"granted":true}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("выдача согласия вернула %d: %v", resp.StatusCode, body)
+	}
+}
+
 func overview(t *testing.T, client *http.Client, ts *httptest.Server) map[string]any {
 	t.Helper()
 	resp, body := doJSON(t, client, http.MethodGet, ts.URL+"/api/hr/overview", "")
@@ -58,6 +69,7 @@ func TestСводкаПоказываетСоставИПричиныПусто�
 	hr := login(t, ts, mailer, "hr@example.com")
 	createOrg(t, hr, ts, "ООО «Компас»")
 	addMember(t, hr, ts, "lead@example.com")
+	grantConsent(t, ts, mailer, "lead@example.com")
 
 	body := overview(t, hr, ts)
 	org, _ := body["org"].(map[string]any)
@@ -99,6 +111,7 @@ func TestСводкаНеПоказываетЧиселНижеПорога(t *t
 		t.Fatalf("CreateAssessment: %v", err)
 	}
 	submitResponses(t, st, assessment.ID, []domain.Role{domain.RolePeer, domain.RoleSubordinate}, 5)
+	grantConsent(t, ts, mailer, "lead@example.com")
 
 	body := overview(t, hr, ts)
 	row := leaderRow(t, body, "lead@example.com")
@@ -129,6 +142,7 @@ func TestСводкаСчитаетДеструкторыИСильныеСто�
 	}
 	submitResponses(t, st, assessment.ID,
 		[]domain.Role{domain.RolePeer, domain.RoleSubordinate, domain.RoleManager}, 5)
+	grantConsent(t, ts, mailer, "lead@example.com")
 
 	body := overview(t, hr, ts)
 	row := leaderRow(t, body, "lead@example.com")
@@ -172,6 +186,7 @@ func TestСводкаНеОтдаётСырыхДанных(t *testing.T) {
 	assessment, _ := st.CreateAssessment(t.Context(), leaderID, "Раунд")
 	submitResponses(t, st, assessment.ID,
 		[]domain.Role{domain.RolePeer, domain.RoleSubordinate, domain.RoleManager}, 4)
+	grantConsent(t, ts, mailer, "lead@example.com")
 
 	raw, _ := json.Marshal(overview(t, hr, ts))
 	// Эйчар видит агрегаты, как и сам руководитель: по сырым ответам

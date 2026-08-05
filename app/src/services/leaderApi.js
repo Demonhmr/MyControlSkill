@@ -68,6 +68,16 @@ export function createInvite(id, { role, email = '' }) {
   });
 }
 
+/** Участие текущего руководителя в организации. 404 — не состоит ни в одной. */
+export function fetchMembership() {
+  return request('/api/me/org');
+}
+
+/** Разрешить или отозвать показ своего профиля HR-службе. */
+export function setProfileConsent(granted) {
+  return request('/api/me/org/consent', { method: 'PUT', body: { granted } });
+}
+
 /** Сводка по организации. 404 — организации нет, 403 — нет прав HR. */
 export function fetchHROverview() {
   return request('/api/hr/overview');

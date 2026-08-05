@@ -4,14 +4,15 @@ import userEvent from '@testing-library/user-event';
 import HROverviewScreen from './HROverviewScreen.jsx';
 import { jsonResponse, routeFetch } from '../test/helpers.jsx';
 
-function leaderRow({ email, ready, external = 0, destructors = [], strengths = [], hasCritical = false, role = 'leader' }) {
+function leaderRow({ email, ready, external = 0, destructors = [], strengths = [], hasCritical = false, role = 'leader', consentGranted = true }) {
   return {
     leaderId: `id-${email}`,
     name: email,
     email,
     role,
     ready,
-    counts: { external, self: 0, required: 3, ready },
+    consentGranted,
+    counts: consentGranted ? { external, self: 0, required: 3, ready } : null,
     destructors,
     strengths,
     hasCritical,
@@ -109,6 +110,25 @@ describe('HROverviewScreen', () => {
 
     expect(await screen.findByText('Пока считать нечего')).toBeInTheDocument();
     expect(screen.queryByText('Тепловая карта деструкторов')).not.toBeInTheDocument();
+  });
+
+  // Две причины отсутствия чисел не должны выглядеть одинаково: ждать
+  // анкеты и не иметь разрешения — разные вещи и требуют разных действий.
+  it('отделяет тех, кто не дал разрешения, от тех, по кому идёт сбор', async () => {
+    renderScreen({
+      'GET /api/hr/overview': jsonResponse({
+        org: { id: 'o1', name: 'Компас' },
+        leaders: [
+          leaderRow({ email: 'waiting@example.com', ready: false, external: 1 }),
+          leaderRow({ email: 'private@example.com', ready: false, consentGranted: false }),
+        ],
+      }),
+    });
+
+    expect(await screen.findByText('Без разрешения на показ')).toBeInTheDocument();
+    expect(screen.getByText('нет разрешения')).toBeInTheDocument();
+    expect(screen.getByText('Сбор ещё идёт')).toBeInTheDocument();
+    expect(screen.getByText('1 из 3')).toBeInTheDocument();
   });
 
   it('добавляет участника и объясняет отказ', async () => {

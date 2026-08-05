@@ -3,6 +3,7 @@ import { useStore } from '../state/store.jsx';
 import { useProfileSource } from '../state/profile.jsx';
 import { ROLES } from '../data/questionnaire';
 import { Card, Banner, Button, Badge } from '../components/ui.jsx';
+import ConsentCard from '../components/ConsentCard.jsx';
 import {
   closeAssessment,
   createAssessment,
@@ -88,6 +89,8 @@ export default function AssessmentsScreen() {
       </p>
 
       {error && <Banner title="Ошибка">{error}</Banner>}
+
+      <ConsentCard />
 
       <Card>
         <div className="btn-row">

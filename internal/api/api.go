@@ -105,6 +105,9 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/hr/members", s.requireLeader(s.handleAddMember))
 	mux.HandleFunc("GET /api/hr/overview", s.requireLeader(s.handleHROverview))
 
+	mux.HandleFunc("GET /api/me/org", s.requireLeader(s.handleGetMembership))
+	mux.HandleFunc("PUT /api/me/org/consent", s.requireLeader(s.handleSetConsent))
+
 	// Анкета респондента — без авторизации: аккаунта у него нет, вся
 	// аутентификация это знание токена из ссылки.
 	mux.HandleFunc("GET /api/survey/{token}", s.handleGetSurvey)

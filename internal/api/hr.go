@@ -42,8 +42,11 @@ type hrLeaderView struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Role     string `json:"role"`
-	// Ready — набралось ли анкет на расчёт. Пока нет, чисел не будет.
+	// Ready — можно ли показывать числа: набрались анкеты и есть согласие.
 	Ready bool `json:"ready"`
+	// ConsentGranted — разрешил ли человек показывать свой профиль HR.
+	// Без согласия чисел нет, сколько бы анкет ни собралось.
+	ConsentGranted bool `json:"consentGranted"`
 	// Counts заполнен всегда: он объясняет, почему чисел нет.
 	Counts      *countsView `json:"counts"`
 	Destructors []codeScore `json:"destructors"`
@@ -152,9 +155,11 @@ func (s *Server) handleHROverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	viewer, _ := LeaderFrom(r.Context())
+
 	views := make([]hrLeaderView, 0, len(members))
 	for _, m := range members {
-		view, err := s.leaderOverview(r, m)
+		view, err := s.leaderOverview(r, m, viewer.ID)
 		if err != nil {
 			s.Log.Error("не удалось собрать сводку по участнику", "leader", m.LeaderID, "err", err)
 			s.writeError(w, http.StatusInternalServerError, "не удалось собрать сводку")
@@ -169,7 +174,7 @@ func (s *Server) handleHROverview(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) leaderOverview(r *http.Request, m store.Member) (hrLeaderView, error) {
+func (s *Server) leaderOverview(r *http.Request, m store.Member, viewerID string) (hrLeaderView, error) {
 	view := hrLeaderView{
 		LeaderID:    m.LeaderID,
 		Name:        displayName(m),
@@ -177,6 +182,15 @@ func (s *Server) leaderOverview(r *http.Request, m store.Member) (hrLeaderView, 
 		Role:        string(m.Role),
 		Destructors: []codeScore{},
 		Strengths:   []codeScore{},
+	}
+
+	// Свои данные человек видит всегда: согласие нужно на показ другим, а
+	// не самому себе.
+	view.ConsentGranted = m.ProfileConsentGranted() || m.LeaderID == viewerID
+	if !view.ConsentGranted {
+		// Счётчики тоже не показываем: сколько анкет собрал человек — уже
+		// сведения о нём, и без согласия их выдавать не за что.
+		return view, nil
 	}
 
 	assessment, err := s.Store.LatestAssessment(r.Context(), m.LeaderID)
