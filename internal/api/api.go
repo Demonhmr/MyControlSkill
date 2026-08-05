@@ -100,6 +100,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/assessments/{id}/close", s.requireLeader(s.handleCloseAssessment))
 	mux.HandleFunc("POST /api/assessments/{id}/invites", s.requireLeader(s.handleCreateInvite))
 	mux.HandleFunc("GET /api/assessments/{id}/profile", s.requireLeader(s.handleProfile))
+	mux.HandleFunc("DELETE /api/assessments/{id}", s.requireLeader(s.handleDeleteAssessment))
 
 	mux.HandleFunc("GET /api/state", s.requireLeader(s.handleGetState))
 	mux.HandleFunc("PUT /api/state", s.requireLeader(s.handlePutState))
@@ -109,6 +110,8 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/hr/members", s.requireLeader(s.handleAddMember))
 	mux.HandleFunc("GET /api/hr/overview", s.requireLeader(s.handleHROverview))
 
+	mux.HandleFunc("GET /api/me/export", s.requireLeader(s.handleExport))
+	mux.HandleFunc("DELETE /api/me", s.requireLeader(s.handleDeleteAccount))
 	mux.HandleFunc("GET /api/me/org", s.requireLeader(s.handleGetMembership))
 	mux.HandleFunc("PUT /api/me/org/consent", s.requireLeader(s.handleSetConsent))
 

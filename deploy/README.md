@@ -120,6 +120,20 @@ sudo systemctl start mycontrolskill
 Журналы `-wal` и `-shm` удаляются намеренно: они относятся к прежней базе, и
 рядом с восстановленной означали бы несогласованное состояние.
 
+## Срок хранения
+
+Если задан `MCS_RETENTION_DAYS`, старые раунды удаляются ежедневным
+таймером:
+
+```bash
+sudo cp deploy/mycontrolskill-purge.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now mycontrolskill-purge.timer
+```
+
+Таймер стоит на час позже копии базы: удалённое должно хотя бы сутки
+оставаться в копии, иначе ошибка в сроке хранения необратима.
+
 ## Обновление
 
 ```bash

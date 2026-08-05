@@ -30,14 +30,18 @@ func main() {
 	// Копия делается тем же бинарником: утилиты sqlite3 на сервере может не
 	// быть, а копировать файл базы при включённом WAL небезопасно.
 	backupPath := flag.String("backup", "", "сделать копию базы в указанный файл и выйти")
+	purge := flag.Bool("purge", false, "удалить раунды старше MCS_RETENTION_DAYS и выйти")
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	var err error
-	if *backupPath != "" {
+	switch {
+	case *backupPath != "":
 		err = backup(log, *backupPath)
-	} else {
+	case *purge:
+		err = purgeOld(log)
+	default:
 		err = run(log)
 	}
 	if err != nil {
@@ -65,6 +69,39 @@ func backup(log *slog.Logger, destPath string) error {
 		return err
 	}
 	log.Info("копия базы создана", "from", cfg.DBPath, "to", destPath)
+	return nil
+}
+
+// purgeOld удаляет раунды, вышедшие за срок хранения.
+//
+// Отдельной командой, а не на старте сервера: удаление данных не должно
+// случаться незаметно, при каждом перезапуске службы. Запускается таймером
+// рядом с копией базы — и обязательно после неё, чтобы удалённое хотя бы
+// сутки оставалось в копии.
+func purgeOld(log *slog.Logger) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	if cfg.RetentionDays <= 0 {
+		log.Info("MCS_RETENTION_DAYS не задан: раунды хранятся бессрочно, чистить нечего")
+		return nil
+	}
+
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.DBPath)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+
+	cutoff := time.Now().AddDate(0, 0, -cfg.RetentionDays)
+	n, err := st.PurgeOlderThan(ctx, cutoff)
+	if err != nil {
+		return err
+	}
+	log.Info("чистка по сроку хранения завершена",
+		"удалено раундов", n, "старше", cutoff.Format(time.RFC3339), "дней", cfg.RetentionDays)
 	return nil
 }
 
@@ -112,6 +149,9 @@ func run(log *slog.Logger) error {
 	} else {
 		log.Info("заведение аккаунтов ограничено",
 			"доменов", len(cfg.Registration.Domains), "адресов", len(cfg.Registration.Emails))
+	}
+	if cfg.RetentionDays > 0 {
+		log.Info("срок хранения раундов задан", "дней", cfg.RetentionDays)
 	}
 	if cfg.BaseURL == "" {
 		log.Warn("MCS_BASE_URL не задан: ссылки в письмах собираются из заголовков запроса, " +

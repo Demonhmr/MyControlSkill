@@ -1,0 +1,16 @@
+# Ежедневная чистка по сроку хранения.
+#
+#   sudo cp deploy/mycontrolskill-purge.{service,timer} /etc/systemd/system/
+#   sudo systemctl enable --now mycontrolskill-purge.timer
+
+[Unit]
+Description=Ежедневная чистка раундов по сроку хранения
+
+[Timer]
+# На час позже копии: сначала данные попадают в копию, потом удаляются.
+OnCalendar=*-*-* 04:00:00
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

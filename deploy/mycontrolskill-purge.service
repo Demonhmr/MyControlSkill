@@ -1,0 +1,23 @@
+# Разовая задача: удаление раундов, вышедших за срок хранения.
+#
+# Запускается таймером после копии базы: удалённое должно хотя бы сутки
+# оставаться в копии, иначе ошибка в сроке хранения необратима.
+#
+# Без MCS_RETENTION_DAYS ничего не делает.
+[Unit]
+Description=Чистка раундов по сроку хранения
+After=mycontrolskill-backup.service
+
+[Service]
+Type=oneshot
+User=mycontrolskill
+Group=mycontrolskill
+
+EnvironmentFile=/etc/mycontrolskill/env
+ExecStart=/opt/mycontrolskill/bin/mycontrolskill-server -purge
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StateDirectory=mycontrolskill

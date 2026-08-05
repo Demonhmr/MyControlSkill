@@ -31,6 +31,13 @@ type Config struct {
 	// пуст, письма не отправляются, а ссылки пишутся в лог.
 	SMTP SMTP
 
+	// RetentionDays — через сколько дней раунды 360° удаляются. Ноль
+	// означает «хранить бессрочно».
+	//
+	// Удаляются именно раунды, а не аккаунты: собранная обратная связь
+	// стареет и перестаёт что-либо значить, а личный кабинет — нет.
+	RetentionDays int
+
 	// Registration — кому разрешено заводить аккаунт. Пустой список
 	// означает, что завести его может любой, кто знает адрес сервиса.
 	Registration Registration
@@ -84,6 +91,14 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("MCS_SMTP_PORT должен быть числом: %w", err)
 	}
 
+	retention, err := strconv.Atoi(env("MCS_RETENTION_DAYS", "0"))
+	if err != nil {
+		return Config{}, fmt.Errorf("MCS_RETENTION_DAYS должен быть числом: %w", err)
+	}
+	if retention < 0 {
+		return Config{}, fmt.Errorf("MCS_RETENTION_DAYS не может быть отрицательным")
+	}
+
 	c := Config{
 		Addr:            env("MCS_ADDR", defaultAddr),
 		DBPath:          env("MCS_DB_PATH", defaultDBPath),
@@ -91,6 +106,7 @@ func Load() (Config, error) {
 		BaseURL:         strings.TrimSuffix(env("MCS_BASE_URL", ""), "/"),
 		ShutdownTimeout: defaultShutdownTimeout,
 		TrustProxy:      envBool("MCS_TRUST_PROXY"),
+		RetentionDays:   retention,
 		Registration: Registration{
 			Emails:  parseList(env("MCS_ALLOWED_EMAILS", ""), false),
 			Domains: parseList(env("MCS_ALLOWED_DOMAINS", ""), true),

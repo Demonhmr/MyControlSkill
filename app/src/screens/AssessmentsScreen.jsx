@@ -4,10 +4,12 @@ import { useProfileSource } from '../state/profile.jsx';
 import { ROLES } from '../data/questionnaire';
 import { Card, Banner, Button, Badge } from '../components/ui.jsx';
 import ConsentCard from '../components/ConsentCard.jsx';
+import DataRightsCard from '../components/DataRightsCard.jsx';
 import {
   closeAssessment,
   createAssessment,
   createInvite,
+  deleteAssessment,
   getAssessment,
   listAssessments,
 } from '../services/leaderApi.js';
@@ -118,6 +120,8 @@ export default function AssessmentsScreen() {
         )}
       </Card>
 
+      <DataRightsCard />
+
       {selected && (
         <RoundDetail
           data={selected}
@@ -127,6 +131,10 @@ export default function AssessmentsScreen() {
             await reloadList();
             await openRound(id);
           }}
+          onRemoved={async () => {
+            setSelected(null);
+            await reloadList();
+          }}
           setError={setError}
         />
       )}
@@ -134,7 +142,7 @@ export default function AssessmentsScreen() {
   );
 }
 
-function RoundDetail({ data, links, setLinks, onChanged, setError }) {
+function RoundDetail({ data, links, setLinks, onChanged, onRemoved, setError }) {
   const { assessment, invites } = data;
   const { dispatch } = useStore();
   const { select } = useProfileSource();
@@ -166,6 +174,19 @@ function RoundDetail({ data, links, setLinks, onChanged, setError }) {
   const showProfile = async () => {
     await select(assessment.id);
     dispatch({ type: 'SET_SCREEN', screen: 'destructors' });
+  };
+
+  const remove = async () => {
+    if (!confirm('Удалить раунд? Все собранные по нему анкеты пропадут безвозвратно.')) return;
+    setBusy(true);
+    try {
+      await deleteAssessment(assessment.id);
+      await onRemoved();
+    } catch {
+      setError('Не удалось удалить раунд.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const close = async () => {
@@ -203,6 +224,7 @@ function RoundDetail({ data, links, setLinks, onChanged, setError }) {
           {!assessment.closedAt && (
             <Button variant="ghost" onClick={close} disabled={busy}>Закрыть раунд</Button>
           )}
+          <Button variant="ghost" onClick={remove} disabled={busy}>Удалить раунд</Button>
         </div>
       </Card>
 

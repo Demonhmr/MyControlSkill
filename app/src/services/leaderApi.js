@@ -68,6 +68,21 @@ export function createInvite(id, { role, email = '' }) {
   });
 }
 
+/** Удаляет раунд вместе со всеми собранными по нему анкетами. */
+export function deleteAssessment(id) {
+  return request(`/api/assessments/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+/**
+ * Удаляет аккаунт и все данные. Необратимо.
+ *
+ * Подтверждение адресом проверяет и сервер: одного нажатия для необратимой
+ * операции мало.
+ */
+export function deleteAccount(confirmEmail) {
+  return request('/api/me', { method: 'DELETE', body: { confirmEmail } });
+}
+
 /** Участие текущего руководителя в организации. 404 — не состоит ни в одной. */
 export function fetchMembership() {
   return request('/api/me/org');
