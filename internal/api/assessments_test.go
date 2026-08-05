@@ -255,12 +255,22 @@ func submitResponses(t *testing.T, st *store.Store, assessmentID string, roles [
 		if err != nil {
 			t.Fatalf("CreateInvite: %v", err)
 		}
+		// Обе шкалы: HR-сводка строится на деструкторах, и анкета без них
+		// оставила бы её пустой при формально готовом профиле.
 		sub := domain.Submission{Tenure: domain.TenureOver1Year}
 		for _, code := range domain.CompetencyCodes {
 			for i := 0; i < domain.ItemsPerCode; i++ {
 				v := value
 				sub.Answers = append(sub.Answers, domain.Answer{
 					Kind: domain.KindCompetency, Code: code, ItemIndex: i, Value: &v,
+				})
+			}
+		}
+		for _, code := range domain.DestructorCodes {
+			for i := 0; i < domain.ItemsPerCode; i++ {
+				v := value
+				sub.Answers = append(sub.Answers, domain.Answer{
+					Kind: domain.KindDestructor, Code: code, ItemIndex: i, Value: &v,
 				})
 			}
 		}

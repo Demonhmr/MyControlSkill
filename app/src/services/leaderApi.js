@@ -68,6 +68,19 @@ export function createInvite(id, { role, email = '' }) {
   });
 }
 
+/** Сводка по организации. 404 — организации нет, 403 — нет прав HR. */
+export function fetchHROverview() {
+  return request('/api/hr/overview');
+}
+
+export function createOrg(name) {
+  return request('/api/hr/org', { method: 'POST', body: { name } });
+}
+
+export function addOrgMember(email) {
+  return request('/api/hr/members', { method: 'POST', body: { email } });
+}
+
 /** Рабочее состояние экранов и записи из тренажёра — одним запросом. */
 export function fetchLeaderState() {
   return request('/api/state');

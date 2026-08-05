@@ -11,6 +11,7 @@ import PlanScreen from './screens/PlanScreen.jsx';
 import TrainerScreen from './screens/TrainerScreen.jsx';
 import PulseScreen from './screens/PulseScreen.jsx';
 import HRDashboardScreen from './screens/HRDashboardScreen.jsx';
+import HROverviewScreen from './screens/HROverviewScreen.jsx';
 import AssessmentsScreen from './screens/AssessmentsScreen.jsx';
 import LoginScreen from './screens/LoginScreen.jsx';
 import ProfileGateScreen from './screens/ProfileGateScreen.jsx';
@@ -32,6 +33,17 @@ const SCREENS = {
 // нельзя.
 const PROFILE_SCREENS = new Set(['destructors', 'strength', 'growth', 'plan', 'pulse']);
 
+// screenFor выбирает компонент экрана с учётом режима.
+//
+// HR-дашборд в демо-режиме остаётся моком: .exe раздают для показов, а
+// организации там нет — реальному экрану нечего было бы показать.
+function screenFor(screen, mode) {
+  if (screen === 'hr') {
+    return mode === 'server' ? HROverviewScreen : HRDashboardScreen;
+  }
+  return SCREENS[screen] ?? Survey360Screen;
+}
+
 function Shell() {
   const { state, persistError } = useStore();
   const { mode } = useSession();
@@ -43,7 +55,7 @@ function Shell() {
   const screen = mode === 'server' && state.screen === 'survey' ? 'rounds' : state.screen;
 
   const needsProfile = mode === 'server' && PROFILE_SCREENS.has(screen);
-  const Screen = needsProfile && !profile ? ProfileGateScreen : SCREENS[screen] ?? Survey360Screen;
+  const Screen = needsProfile && !profile ? ProfileGateScreen : screenFor(screen, mode);
 
   return (
     <div className="app viz-root">
